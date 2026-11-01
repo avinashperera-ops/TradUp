@@ -1,7 +1,7 @@
 # TradUp
 
 FastAPI + vanilla JS dashboard. Email/password auth (bcrypt + JWT cookie), Google OAuth,
-per-user holdings and watchlist, live prices (Yahoo Finance; live Colombo quotes from the unofficial cse.lk API), and a forecast/signal view.
+per-user holdings and watchlist, live prices (Yahoo Finance; Colombo prices and daily history from the unofficial cse.lk API), and a forecast/signal view.
 
 ## Run locally
     python -m venv .venv && source .venv/bin/activate

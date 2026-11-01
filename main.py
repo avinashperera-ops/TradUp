@@ -284,8 +284,6 @@ def search(q: str, u: User = Depends(current_user)):
 @app.get("/api/forecast")
 def forecast(symbol: str, days: int = 30, cse: bool = False, u: User = Depends(current_user)):
     sym = market.normalize(symbol, cse)
-    if market.is_cse(sym):
-        raise HTTPException(400, "Forecasts need daily price history, which isn't available for CSE stocks. Prices, assets and watchlist still work.")
     r = market.forecast(sym, max(7, min(days, 90)))
     if not r:
         raise HTTPException(400, market.LAST_ERR.get(sym) or f"Not enough market data for {sym}")

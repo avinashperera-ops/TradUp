@@ -45,7 +45,7 @@ def cse_quote(symbol: str):
             LAST_ERR[symbol] = f"CSE has no data for {cse_code(symbol)} (class suffix: try .N0000 or .X0000)"
             return None
         change = float(i.get("change") or 0)
-        out = {"price": float(price), "prev": float(price) - change,
+        out = {"id": i.get("id"), "price": float(price), "prev": float(price) - change,
                "change_pct": float(i.get("changePercentage") or 0), "volume": 0,
                "date": pd.Timestamp.today().strftime("%Y-%m-%d"), "name": i.get("name") or cse_code(symbol)}
         _cache[key] = (time.time(), out)
@@ -55,11 +55,33 @@ def cse_quote(symbol: str):
         return None
 
 
+def cse_history(symbol: str):
+    """~1 year of daily prices from cse.lk (companyChartDataByStock, period=5)."""
+    q = cse_quote(symbol)
+    if not q or not q.get("id"):
+        return None
+    try:
+        r = requests.post(CSE_API + "companyChartDataByStock", data={"stockId": q["id"], "period": 5}, timeout=20,
+                          headers={"User-Agent": "Mozilla/5.0 TradUp"})
+        rows = (r.json() or {}).get("chartData") or []
+        if len(rows) < 2:
+            LAST_ERR[symbol] = f"CSE returned no daily history for {cse_code(symbol)}"
+            return None
+        df = pd.DataFrame(rows)
+        df["Date"] = (pd.to_datetime(df["t"], unit="ms") + pd.Timedelta(hours=5, minutes=30)).dt.normalize()  # Colombo time
+        df = df.rename(columns={"p": "Close", "q": "Volume"})
+        df["Volume"] = df["Volume"].fillna(0)
+        df = df.dropna(subset=["Close"]).drop_duplicates("Date", keep="last")
+        return df[["Date", "Close", "Volume"]].sort_values("Date").reset_index(drop=True)
+    except Exception as e:
+        LAST_ERR[symbol] = f"Could not read CSE history ({type(e).__name__})"
+        return None
+
+
 def _fetch(symbol: str, years: int):
     try:
         if is_cse(symbol):
-            LAST_ERR[symbol] = "Daily price history isn't available for CSE stocks (live prices only)"
-            return None
+            return cse_history(symbol)
         else:
             df = yf.Ticker(symbol).history(period=f"{years}y", auto_adjust=True)
             if df.empty:

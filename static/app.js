@@ -50,7 +50,7 @@ async function loadHoldings(){
 }
 async function loadWatch(){
   S.w=await api('/api/watchlist');
-  const card=(w,rm)=>`<div class="scard">${rm?`<button class="x" data-wdel="${w.id}" title="Remove">✕</button>`:''}<div><b>${esc(w.name)}</b><div class="mut sm">${fmtD(w.start)} – ${fmtD(w.end)}</div></div><div class="row"><div><b>${money(w.price,w.symbol)}</b><div class="mut xs">${money(w.price_then,w.symbol)}</div></div>${badge(w.change_pct)}</div><button class="mut xs" style="text-align:left" data-an="${esc(w.symbol)}">${esc(w.symbol)} · Analyze →</button></div>`;
+  const card=(w,rm)=>`<div class="scard">${rm?`<button class="x" data-wdel="${w.id}" title="Remove">✕</button>`:''}<div><b>${esc(w.name)}</b><div class="mut sm">${w.start===w.end?'Today':fmtD(w.start)+' – '+fmtD(w.end)}</div></div><div class="row"><div><b>${money(w.price,w.symbol)}</b><div class="mut xs">${money(w.price_then,w.symbol)}</div></div>${badge(w.change_pct)}</div><button class="mut xs" style="text-align:left" data-an="${esc(w.symbol)}">${esc(w.symbol)} · Analyze →</button></div>`;
   $('#top4').innerHTML=S.w.length?S.w.slice(0,4).map(w=>card(w)).join(''):'<div class="card empty" style="grid-column:1/-1">Add tickers to your watchlist to track 30-day performance here.</div>';
   $('#wGrid').innerHTML=S.w.length?S.w.map(w=>card(w,1)).join(''):'<div class="card empty" style="grid-column:1/-1">Your watchlist is empty.</div>';
 }

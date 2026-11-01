@@ -1,12 +1,11 @@
-"""Live market data (Yahoo Finance + EODHD for Colombo) and the forecast model."""
+"""Live market data (Yahoo Finance; cse.lk for Colombo quotes) and the forecast model."""
 import os, time, requests
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from concurrent.futures import ThreadPoolExecutor
 
-EODHD_KEY = os.getenv("EODHD_API_KEY", "")
-EODHD_EX = os.getenv("EODHD_EXCHANGE", "CM")
+CSE_API = "https://www.cse.lk/api/"
 TTL = 600
 _cache: dict = {}
 LAST_ERR: dict = {}
@@ -16,36 +15,51 @@ def is_cse(s: str) -> bool:
     return s.endswith((".CSE", ".LK", ".CM"))
 
 
+def cse_code(symbol: str) -> str:
+    """HNB.N0000.CSE -> HNB.N0000 (the form cse.lk expects)."""
+    return symbol.rsplit(".", 1)[0] if is_cse(symbol) else symbol
+
+
 def normalize(symbol: str, cse: bool = False) -> str:
     s = symbol.strip().upper()
-    if cse and not is_cse(s):
-        s += ".CSE"
+    if cse or is_cse(s):
+        base = cse_code(s)
+        if "." not in base:          # default to the voting-share class
+            base += ".N0000"
+        return base + ".CSE"
     return s
+
+
+def cse_quote(symbol: str):
+    """Live quote from the Colombo Stock Exchange's public (unofficial) API."""
+    key = ("cse", symbol)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    try:
+        r = requests.post(CSE_API + "companyInfoSummery", data={"symbol": cse_code(symbol)}, timeout=15,
+                          headers={"User-Agent": "Mozilla/5.0 TradUp"})
+        i = (r.json() or {}).get("reqSymbolInfo") or {}
+        price = i.get("lastTradedPrice") or i.get("previousClose")
+        if r.status_code != 200 or not price:
+            LAST_ERR[symbol] = f"CSE has no data for {cse_code(symbol)} (class suffix: try .N0000 or .X0000)"
+            return None
+        change = float(i.get("change") or 0)
+        out = {"price": float(price), "prev": float(price) - change,
+               "change_pct": float(i.get("changePercentage") or 0), "volume": 0,
+               "date": pd.Timestamp.today().strftime("%Y-%m-%d"), "name": i.get("name") or cse_code(symbol)}
+        _cache[key] = (time.time(), out)
+        return out
+    except Exception as e:
+        LAST_ERR[symbol] = f"Could not reach the CSE API ({type(e).__name__})"
+        return None
 
 
 def _fetch(symbol: str, years: int):
     try:
         if is_cse(symbol):
-            if not EODHD_KEY:
-                LAST_ERR[symbol] = "EODHD_API_KEY is not set on the server"
-                return None
-            start = (pd.Timestamp.today() - pd.DateOffset(years=years)).strftime("%Y-%m-%d")
-            base = symbol.rsplit(".", 1)[0].replace(".", "-")   # HNB.N0000 -> HNB-N0000
-            codes = [base] if "-" in base else [f"{base}-N0000", f"{base}-X0000", base]
-            data, tried = None, []
-            for code in codes:
-                r = requests.get(f"https://eodhd.com/api/eod/{code}.{EODHD_EX}",
-                                 params={"api_token": EODHD_KEY, "fmt": "json", "from": start}, timeout=15)
-                tried.append(f"{code}.{EODHD_EX}={r.status_code}")
-                if r.status_code == 200 and isinstance(r.json(), list) and r.json():
-                    data = r.json()
-                    break
-            if not data:
-                LAST_ERR[symbol] = "EODHD found no data (tried " + ", ".join(tried) + ")"
-                return None
-            df = pd.DataFrame(data)
-            df["Date"] = pd.to_datetime(df["date"])
-            df = df.rename(columns={"close": "Close", "volume": "Volume"})
+            LAST_ERR[symbol] = "Daily price history isn't available for CSE stocks (live prices only)"
+            return None
         else:
             df = yf.Ticker(symbol).history(period=f"{years}y", auto_adjust=True)
             if df.empty:
@@ -74,6 +88,8 @@ def history(symbol: str, years: int = 1):
 
 
 def quote(symbol: str):
+    if is_cse(symbol):
+        return cse_quote(symbol)
     df = history(symbol, 1)
     if df is None or df.empty:
         return None
@@ -85,7 +101,8 @@ def quote(symbol: str):
 
 def info(symbol: str):
     if is_cse(symbol):
-        return {"name": symbol.split(".")[0], "sector": "Colombo Stock Exchange"}
+        q = cse_quote(symbol)
+        return {"name": (q or {}).get("name") or cse_code(symbol), "sector": "Colombo Stock Exchange"}
     try:
         i = yf.Ticker(symbol).info
         return {"name": i.get("shortName") or i.get("longName") or symbol,

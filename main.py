@@ -199,7 +199,7 @@ def holdings(u: User = Depends(current_user), db: Session = Depends(get_db)):
 @app.post("/api/holdings")
 def add_holding(b: HoldingIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     sym = market.normalize(b.symbol, b.cse)
-    if market.history(sym, 1) is None:
+    if market.quote(sym) is None:
         raise HTTPException(400, market.LAST_ERR.get(sym) or f"Could not find market data for {sym}")
     i = market.info(sym)
     db.add(Holding(user_id=u.id, symbol=sym, name=i["name"], sector=i["sector"], shares=b.shares,
@@ -230,7 +230,11 @@ def watchlist(u: User = Depends(current_user), db: Session = Depends(get_db)):
     def card(w):
         df = market.history(w.symbol, 1)
         if df is None or df.empty:
-            return None
+            q = market.quote(w.symbol)   # e.g. CSE stocks: live quote only, no history
+            if not q:
+                return None
+            return {"id": w.id, "symbol": w.symbol, "name": w.name, "price": q["price"], "price_then": q["prev"],
+                    "start": q["date"], "end": q["date"], "change_pct": q["change_pct"], "day_change_pct": q["change_pct"]}
         last = df.iloc[-1]
         past = df[df["Date"] <= last["Date"] - dt.timedelta(days=30)]
         first = past.iloc[-1] if not past.empty else df.iloc[0]
@@ -245,7 +249,7 @@ def watchlist(u: User = Depends(current_user), db: Session = Depends(get_db)):
 @app.post("/api/watchlist")
 def add_watch(b: WatchIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     sym = market.normalize(b.symbol, b.cse)
-    if market.history(sym, 1) is None:
+    if market.quote(sym) is None:
         raise HTTPException(400, market.LAST_ERR.get(sym) or f"Could not find market data for {sym}")
     if db.query(Watch).filter(Watch.user_id == u.id, Watch.symbol == sym).first():
         raise HTTPException(400, f"{sym} is already on your watchlist")
@@ -280,6 +284,8 @@ def search(q: str, u: User = Depends(current_user)):
 @app.get("/api/forecast")
 def forecast(symbol: str, days: int = 30, cse: bool = False, u: User = Depends(current_user)):
     sym = market.normalize(symbol, cse)
+    if market.is_cse(sym):
+        raise HTTPException(400, "Forecasts need daily price history, which isn't available for CSE stocks. Prices, assets and watchlist still work.")
     r = market.forecast(sym, max(7, min(days, 90)))
     if not r:
         raise HTTPException(400, market.LAST_ERR.get(sym) or f"Not enough market data for {sym}")

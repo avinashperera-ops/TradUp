@@ -9,6 +9,7 @@ EODHD_KEY = os.getenv("EODHD_API_KEY", "")
 EODHD_EX = os.getenv("EODHD_EXCHANGE", "CM")
 TTL = 600
 _cache: dict = {}
+LAST_ERR: dict = {}
 
 
 def is_cse(s: str) -> bool:
@@ -26,12 +27,21 @@ def _fetch(symbol: str, years: int):
     try:
         if is_cse(symbol):
             if not EODHD_KEY:
+                LAST_ERR[symbol] = "EODHD_API_KEY is not set on the server"
                 return None
             start = (pd.Timestamp.today() - pd.DateOffset(years=years)).strftime("%Y-%m-%d")
-            r = requests.get(f"https://eodhd.com/api/eod/{symbol.split('.')[0]}.{EODHD_EX}",
-                             params={"api_token": EODHD_KEY, "fmt": "json", "from": start}, timeout=15)
-            data = r.json() if r.status_code == 200 else None
-            if not data or not isinstance(data, list):
+            base = symbol.rsplit(".", 1)[0].replace(".", "-")   # HNB.N0000 -> HNB-N0000
+            codes = [base] if "-" in base else [f"{base}-N0000", f"{base}-X0000", base]
+            data, tried = None, []
+            for code in codes:
+                r = requests.get(f"https://eodhd.com/api/eod/{code}.{EODHD_EX}",
+                                 params={"api_token": EODHD_KEY, "fmt": "json", "from": start}, timeout=15)
+                tried.append(f"{code}.{EODHD_EX}={r.status_code}")
+                if r.status_code == 200 and isinstance(r.json(), list) and r.json():
+                    data = r.json()
+                    break
+            if not data:
+                LAST_ERR[symbol] = "EODHD found no data (tried " + ", ".join(tried) + ")"
                 return None
             df = pd.DataFrame(data)
             df["Date"] = pd.to_datetime(df["date"])

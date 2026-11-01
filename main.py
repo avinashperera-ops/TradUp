@@ -200,7 +200,7 @@ def holdings(u: User = Depends(current_user), db: Session = Depends(get_db)):
 def add_holding(b: HoldingIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     sym = market.normalize(b.symbol, b.cse)
     if market.history(sym, 1) is None:
-        raise HTTPException(400, f"Could not find market data for {sym}")
+        raise HTTPException(400, market.LAST_ERR.get(sym) or f"Could not find market data for {sym}")
     i = market.info(sym)
     db.add(Holding(user_id=u.id, symbol=sym, name=i["name"], sector=i["sector"], shares=b.shares,
                    buy_price=b.buy_price, buy_date=b.buy_date or dt.date.today()))
@@ -246,7 +246,7 @@ def watchlist(u: User = Depends(current_user), db: Session = Depends(get_db)):
 def add_watch(b: WatchIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     sym = market.normalize(b.symbol, b.cse)
     if market.history(sym, 1) is None:
-        raise HTTPException(400, f"Could not find market data for {sym}")
+        raise HTTPException(400, market.LAST_ERR.get(sym) or f"Could not find market data for {sym}")
     if db.query(Watch).filter(Watch.user_id == u.id, Watch.symbol == sym).first():
         raise HTTPException(400, f"{sym} is already on your watchlist")
     db.add(Watch(user_id=u.id, symbol=sym, name=market.info(sym)["name"]))
@@ -282,5 +282,5 @@ def forecast(symbol: str, days: int = 30, cse: bool = False, u: User = Depends(c
     sym = market.normalize(symbol, cse)
     r = market.forecast(sym, max(7, min(days, 90)))
     if not r:
-        raise HTTPException(400, f"Not enough market data for {sym}")
+        raise HTTPException(400, market.LAST_ERR.get(sym) or f"Not enough market data for {sym}")
     return r

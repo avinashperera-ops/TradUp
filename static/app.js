@@ -56,18 +56,71 @@ async function loadWatch(){
   $('#top4').innerHTML=S.w.length?S.w.slice(0,4).map(w=>card(w)).join(''):'<div class="card empty" style="grid-column:1/-1">Add tickers to your watchlist to track 30-day performance here.</div>';
   $('#wGrid').innerHTML=S.w.length?S.w.map(w=>card(w,1)).join(''):'<div class="card empty" style="grid-column:1/-1">Your watchlist is empty.</div>';
 }
+/* TradUp hero chart: glow line, gradient area, crosshair + triangle + pill, glowing point, bold active label */
+const tradPlugin={
+  id:'trad',
+  beforeDatasetDraw(c,a){if(a.index===1){c.ctx.save();c.ctx.shadowColor='rgba(167,139,250,.95)';c.ctx.shadowBlur=22}},
+  afterDatasetDraw(c,a){if(a.index===1)c.ctx.restore()},
+  afterEvent(c,args){
+    const e=args.event;let idx=c._idx??null;
+    if(e.type==='mouseout')idx=null;
+    else if(['mousemove','touchmove','touchstart','click'].includes(e.type)){
+      const a=c.chartArea;
+      if(e.x>=a.left&&e.x<=a.right&&e.y>=a.top-34&&e.y<=a.bottom+30){
+        idx=Math.max(0,Math.min(c.data.labels.length-1,Math.round(c.scales.x.getValueForPixel(e.x))));
+      }else idx=null;
+    }
+    if(idx!==(c._idx??null)){c._idx=idx;c._ax=idx==null?null:c.scales.x.getPixelForValue(idx);if(c._onIdx)c._onIdx(idx);c.update('none')}
+  },
+  afterDatasetsDraw(c){
+    if(c._idx==null)return;
+    const i=c._idx,ctx=c.ctx,a=c.chartArea,pt=c.getDatasetMeta(1).data[i];if(!pt)return;
+    const x=pt.x,y=pt.y,vals=c.data.datasets[1].data;
+    ctx.save();
+    const g=ctx.createLinearGradient(0,a.top-26,0,a.bottom);g.addColorStop(0,'rgba(255,255,255,.95)');g.addColorStop(1,'rgba(255,255,255,.1)');
+    ctx.strokeStyle=g;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,a.top-18);ctx.lineTo(x,a.bottom);ctx.stroke();
+    const rg=ctx.createRadialGradient(x,y,0,x,y,28);rg.addColorStop(0,'rgba(244,114,255,.7)');rg.addColorStop(1,'rgba(168,85,247,0)');
+    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,28,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor='#e879f9';ctx.shadowBlur=16;ctx.fillStyle='#f5d0fe';ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(x-7,a.top-31);ctx.lineTo(x+7,a.top-31);ctx.lineTo(x,a.top-18);ctx.closePath();ctx.fill();
+    const ch=i>0&&vals[i-1]?(vals[i]/vals[i-1]-1)*100:0,txt=(ch>=0?'+':'')+ch.toFixed(1)+'%';
+    ctx.font='600 14px Inter,-apple-system,sans-serif';
+    const w=ctx.measureText(txt).width+34,h=34,px=x-w/2,py=a.top-12,r=h/2;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(px+r,py);ctx.arcTo(px+w,py,px+w,py+h,r);ctx.arcTo(px+w,py+h,px,py+h,r);ctx.arcTo(px,py+h,px,py,r);ctx.arcTo(px,py,px+w,py,r);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#14102b';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,py+h/2+1);
+    ctx.font='700 12px Inter,-apple-system,sans-serif';ctx.fillStyle=css('--text');
+    ctx.fillText(fmtD(c.data.labels[i]),x,c.scales.x.top+13);
+    ctx.restore();
+  }
+};
 async function loadChart(){
   const d=await api('/api/portfolio/history?days='+$('#range').value+'&currency='+S.cur);
   $('#chartEmpty').hidden=d.length>0;
   if(pChart){pChart.destroy();pChart=null}
   if(!d.length){$('#cval').innerHTML=big(0);return}
-  const f=d[0].value,l=d[d.length-1].value;
-  $('#cval').innerHTML=big(l)+(f?badge((l/f-1)*100):'');
+  const vals=d.map(x=>x.value),costs=d.map(x=>x.cost);
+  const avg=vals.map((_,i)=>{const s=vals.slice(Math.max(0,i-6),i+1);return s.reduce((p,q)=>p+q,0)/s.length});
+  const first=vals[0],last=vals[vals.length-1];
+  const head=i=>{const v=i==null?last:vals[i];$('#cval').innerHTML=big(v)+(first?badge((v/first-1)*100):'')};
+  head(null);
+  const area=(c,top,bot)=>{const a=c.chart.chartArea;if(!a)return null;const g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,top);g.addColorStop(1,bot);return g};
+  const base={pointRadius:0,pointHoverRadius:0,cubicInterpolationMode:'monotone',tension:.4};
   pChart=new Chart($('#pChart'),{type:'line',data:{labels:d.map(x=>x.date),datasets:[
-    {label:'Value',data:d.map(x=>x.value),borderColor:'#8b5cf6',borderWidth:2.5,tension:.4,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:'#e9d5ff',fill:true,backgroundColor:c=>grad(c,'rgba(139,92,246,.4)')},
-    {label:'Invested',data:d.map(x=>x.cost),borderColor:'#f472b6',borderWidth:1.8,tension:.4,pointRadius:0,pointHoverRadius:4}]},
-   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>fmtD(i[0].label,1),label:c=>{const p=c.dataIndex?c.dataset.data[c.dataIndex-1]:0;return ` ${c.dataset.label}: ${csym()}${num(c.parsed.y)}${p?' ('+pct((c.parsed.y/p-1)*100)+')':''}`}}}},scales:axes()},plugins:[cross]});
+    {...base,label:'area',data:vals,borderWidth:0,fill:true,backgroundColor:c=>area(c,'rgba(139,92,246,.42)','rgba(91,33,182,0)')},
+    {...base,label:'Total value',data:vals,borderColor:'#b9a5ff',borderWidth:4,fill:false},
+    {...base,label:'7-day average',data:avg,borderColor:'#6366f1',borderWidth:1.8,fill:true,backgroundColor:c=>area(c,'rgba(79,70,229,.16)','rgba(79,70,229,0)')},
+    {...base,label:'Invested',data:costs,borderColor:'#d58bc5',borderWidth:1.6,fill:false}]},
+   options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:36}},animation:{duration:600},
+    plugins:{legend:{display:false},tooltip:{enabled:false}},
+    scales:{
+     x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:10,maxRotation:0,font:{size:12},
+        color:c=>{const ch=c.chart;if(ch._ax==null||c.index==null)return css('--mut');return Math.abs(ch.scales.x.getPixelForValue(c.index)-ch._ax)<46?'transparent':css('--mut')},
+        callback(v){return fmtD(this.getLabelForValue(v))}}},
+     y:{grace:'8%',grid:{color:css('--line'),borderDash:[5,5],drawTicks:false},border:{display:false},
+        ticks:{color:css('--mut'),font:{size:12},padding:12,maxTicksLimit:8,callback:v=>Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v)}}}},
+   plugins:[tradPlugin]});
+  pChart._onIdx=head;
 }
 async function loadOverview(){
   try{const d=await api('/api/market/overview');

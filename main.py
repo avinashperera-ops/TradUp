@@ -174,26 +174,35 @@ class WatchIn(BaseModel):
     cse: bool = False
 
 
+def cur_of(sym: str) -> str:
+    return "LKR" if market.is_cse(sym) else "USD"
+
+
 @app.get("/api/holdings")
-def holdings(u: User = Depends(current_user), db: Session = Depends(get_db)):
+def holdings(currency: str | None = None, u: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.query(Holding).filter(Holding.user_id == u.id).order_by(Holding.id).all()
     syms = sorted({h.symbol for h in rows})
     q = dict(zip(syms, market.parallel(market.quote, syms)))
-    out, cost, value, day = [], 0.0, 0.0, 0.0
+    out = []
     for h in rows:
         qq = q.get(h.symbol)
         price = qq["price"] if qq else h.buy_price
         prev = qq["prev"] if qq else price
         c, v = h.shares * h.buy_price, h.shares * price
-        cost += c; value += v; day += h.shares * (price - prev)
         out.append({"id": h.id, "symbol": h.symbol, "name": h.name, "sector": h.sector, "shares": h.shares,
                     "buy_price": h.buy_price, "buy_date": h.buy_date.isoformat(), "price": price,
+                    "currency": cur_of(h.symbol), "day": h.shares * (price - prev),
                     "day_change_pct": qq["change_pct"] if qq else 0, "value": v, "cost": c, "pl": v - c,
                     "pl_pct": (v / c - 1) * 100 if c else 0})
+    avail = sorted({o["currency"] for o in out})
+    if currency not in avail and avail:   # mixed holdings: default to the currency with more invested
+        currency = max(avail, key=lambda k: sum(o["cost"] for o in out if o["currency"] == k))
+    sel = [o for o in out if o["currency"] == currency]
+    cost, value, day = sum(o["cost"] for o in sel), sum(o["value"] for o in sel), sum(o["day"] for o in sel)
     pl = value - cost
-    return {"holdings": out, "summary": {"cost": cost, "value": value, "pl": pl,
-            "pl_pct": pl / cost * 100 if cost else 0, "day": day,
-            "day_pct": day / (value - day) * 100 if value - day else 0}}
+    return {"holdings": out, "summary": {"cost": cost, "value": value, "pl": pl, "pl_pct": pl / cost * 100 if cost else 0,
+            "day": day, "day_pct": day / (value - day) * 100 if value - day else 0,
+            "currency": currency or "USD", "currencies": avail}}
 
 
 @app.post("/api/holdings")
@@ -277,8 +286,10 @@ def del_holding(hid: int, u: User = Depends(current_user), db: Session = Depends
 
 
 @app.get("/api/portfolio/history")
-def portfolio_history(days: int = 90, u: User = Depends(current_user), db: Session = Depends(get_db)):
+def portfolio_history(days: int = 90, currency: str | None = None, u: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.query(Holding).filter(Holding.user_id == u.id).all()
+    if currency:
+        rows = [h for h in rows if cur_of(h.symbol) == currency]
     return market.portfolio_series(rows, max(7, min(days, 730)))
 
 

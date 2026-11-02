@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const S={user:null,h:[],sum:null,w:[],fc:null};
+const S={user:null,h:[],sum:null,w:[],fc:null,cur:'USD',pick:null};
 let pChart,fChart,searchT;
 const isCse=s=>/\.(CSE|LK|CM)$/.test(s||'');
 const num=(v,d=2)=>Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -8,7 +8,8 @@ const money=(v,sym)=>(v<0?'-':'')+(isCse(sym)?'LKR ':'$')+num(Math.abs(v));
 const pct=v=>(v>=0?'+':'')+Number(v).toFixed(2)+'%';
 const cls=v=>v>=0?'up':'down';
 const badge=v=>`<span class="badge ${v>=0?'':'down'}">${pct(v)}</span>`;
-const big=v=>{const p=Math.abs(v).toFixed(2).split('.');return `${v<0?'-':''}$${Number(p[0]).toLocaleString('en-US')}<span class="dim">.${p[1]}</span>`};
+const big=v=>{const p=Math.abs(v).toFixed(2).split('.');const pre=S.cur==='LKR'?'<span class="cur">LKR</span> ':'$';return `<span>${v<0?'-':''}${pre}${Number(p[0]).toLocaleString('en-US')}<span class="dim">.${p[1]}</span></span>`};
+const csym=()=>S.cur==='LKR'?'LKR ':'$';
 const fmtD=(s,full)=>new Date(s+'T00:00:00').toLocaleDateString('en-US',full?{month:'short',day:'numeric',year:'numeric'}:{month:'short',day:'2-digit'});
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 async function api(p,o={}){
@@ -21,7 +22,7 @@ async function api(p,o={}){
 const cross={id:'cross',afterDraw(c){const a=c.tooltip?.getActiveElements?.();if(a&&a.length){const x=a[0].element.x,{top,bottom}=c.chartArea,g=c.ctx;g.save();g.strokeStyle='rgba(167,139,250,.5)';g.beginPath();g.moveTo(x,top);g.lineTo(x,bottom);g.stroke();g.restore()}}};
 const grad=(c,col)=>{const a=c.chart.chartArea;if(!a)return null;const g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,col);g.addColorStop(1,'rgba(139,92,246,0)');return g};
 const axes=()=>({x:{grid:{display:false},ticks:{color:css('--mut'),maxTicksLimit:10,callback(v){return fmtD(this.getLabelForValue(v))}}},
-  y:{grid:{color:css('--line'),borderDash:[4,4]},ticks:{color:css('--mut'),callback:v=>'$'+Intl.NumberFormat('en',{notation:'compact'}).format(v)}}});
+  y:{grid:{color:css('--line'),borderDash:[4,4]},ticks:{color:css('--mut'),callback:v=>(S.cur==='LKR'?'':'$')+Intl.NumberFormat('en',{notation:'compact'}).format(v)}}});
 
 /* ---------- navigation & theme ---------- */
 function go(v){
@@ -36,13 +37,14 @@ function setTheme(t){document.documentElement.dataset.theme=t;localStorage.setIt
 
 /* ---------- data loading ---------- */
 async function loadHoldings(){
-  const d=await api('/api/holdings');S.h=d.holdings;S.sum=d.summary;
-  const s=S.sum;
+  const d=await api('/api/holdings'+(S.pick?'?currency='+S.pick:''));S.h=d.holdings;S.sum=d.summary;
+  const s=S.sum;S.cur=s.currency;
+  const cs=$('#cur');cs.hidden=s.currencies.length<2;cs.innerHTML=s.currencies.map(c=>`<option ${c===S.cur?'selected':''}>${c}</option>`).join('');
   $('#s1').innerHTML=big(s.value);
   $('#s2').innerHTML=`<span class="${cls(s.day)}">${big(s.day)}</span> ${badge(s.day_pct)}`;
   $('#s3').innerHTML=`<span class="${cls(s.pl)}">${big(s.pl)}</span> ${badge(s.pl_pct)}`;
   $('#inv').innerHTML=big(s.cost)+(s.cost?' '+badge(s.pl_pct):'');
-  const top=[...S.h].sort((a,b)=>b.value-a.value).slice(0,4);
+  const top=S.h.filter(h=>h.currency===S.cur).sort((a,b)=>b.value-a.value).slice(0,4);
   $('#invlist').innerHTML=top.length?top.map(h=>`<div class="li"><span>${esc(h.name)}</span><span><span class="mut sm">${money(h.value,h.symbol)}</span> <span class="${cls(h.pl_pct)}">${h.pl_pct>=0?'↑':'↓'} ${Math.abs(h.pl_pct).toFixed(1)}%</span></span></div>`).join(''):'<div class="mut sm">Your top holdings will appear here.</div>';
   $('#positions').innerHTML=S.h.length?S.h.slice(0,6).map(h=>`<div class="pos"><div class="ava">${esc(h.symbol.slice(0,2))}</div><div class="nm"><b>${esc(h.name)}</b><span class="mut sm">${esc(h.sector)}</span></div><div class="r"><b>${money(h.value,h.symbol)}</b><span class="sm ${cls(h.pl_pct)}">${pct(h.pl_pct)}</span></div></div>`).join(''):'<div class="empty">No positions yet.</div>';
   const c=$('#cnt');c.hidden=!S.h.length;c.textContent=S.h.length;
@@ -55,7 +57,7 @@ async function loadWatch(){
   $('#wGrid').innerHTML=S.w.length?S.w.map(w=>card(w,1)).join(''):'<div class="card empty" style="grid-column:1/-1">Your watchlist is empty.</div>';
 }
 async function loadChart(){
-  const d=await api('/api/portfolio/history?days='+$('#range').value);
+  const d=await api('/api/portfolio/history?days='+$('#range').value+'&currency='+S.cur);
   $('#chartEmpty').hidden=d.length>0;
   if(pChart){pChart.destroy();pChart=null}
   if(!d.length){$('#cval').innerHTML=big(0);return}
@@ -65,7 +67,7 @@ async function loadChart(){
     {label:'Value',data:d.map(x=>x.value),borderColor:'#8b5cf6',borderWidth:2.5,tension:.4,pointRadius:0,pointHoverRadius:6,pointHoverBackgroundColor:'#e9d5ff',fill:true,backgroundColor:c=>grad(c,'rgba(139,92,246,.4)')},
     {label:'Invested',data:d.map(x=>x.cost),borderColor:'#f472b6',borderWidth:1.8,tension:.4,pointRadius:0,pointHoverRadius:4}]},
    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>fmtD(i[0].label,1),label:c=>{const p=c.dataIndex?c.dataset.data[c.dataIndex-1]:0;return ` ${c.dataset.label}: $${num(c.parsed.y)}${p?' ('+pct((c.parsed.y/p-1)*100)+')':''}`}}}},scales:axes()},plugins:[cross]});
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>fmtD(i[0].label,1),label:c=>{const p=c.dataIndex?c.dataset.data[c.dataIndex-1]:0;return ` ${c.dataset.label}: ${csym()}${num(c.parsed.y)}${p?' ('+pct((c.parsed.y/p-1)*100)+')':''}`}}}},scales:axes()},plugins:[cross]});
 }
 async function loadOverview(){
   try{const d=await api('/api/market/overview');
@@ -189,6 +191,7 @@ function bind(){
   });
   $$('.theme button').forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
   $('#range').onchange=loadChart;
+  $('#cur').onchange=e=>{S.pick=e.target.value;refresh()};
   $('#bell').onclick=()=>$('#notifs').hidden=!$('#notifs').hidden;
   $('#logout').onclick=async()=>{await api('/api/logout',{method:'POST'}).catch(()=>{});location.href='/login'};
   $('#tryai').onclick=()=>analyze(S.h[0]?.symbol||'AAPL',isCse(S.h[0]?.symbol));

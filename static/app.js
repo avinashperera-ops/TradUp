@@ -115,6 +115,60 @@ function csv(name,rows){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=name;a.click();
 }
 
+
+function parseTable(text){
+  let lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+  const hi=lines.findIndex(l=>/symbol|security|code|counter|stock/i.test(l)&&/qty|quantity|shares|units|holding|balance/i.test(l));
+  if(hi>0)lines=lines.slice(hi);   // skip title rows above the header (ATrad exports have one)
+  if(lines.length<2)return{rows:[],err:'Include the header row and at least one share.'};
+  const d=lines[0].includes('\t')?'\t':lines[0].includes(';')?';':',';
+  const split=l=>(d===','?l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/):l.split(d)).map(x=>x.trim().replace(/^"|"$/g,''));
+  const head=split(lines[0]).map(x=>x.toLowerCase());
+  const f=re=>head.findIndex(x=>re.test(x));
+  const iS=f(/symbol|security|code|counter|stock|company/),iQ=f(/qty|quantity|shares|holding|balance|units/);
+  let iP=f(/avg|average/);if(iP<0)iP=f(/buy.*price|purchase|cost.*(price|share)|price/);
+  const iD=f(/date/);
+  if(iS<0||iQ<0||iP<0)return{rows:[],err:`Couldn't find these columns: ${[iS<0&&'symbol',iQ<0&&'quantity',iP<0&&'average price'].filter(Boolean).join(', ')}. Found: ${head.join(', ')}`};
+  const num=v=>parseFloat(String(v??'').replace(/[^0-9.\-]/g,''));
+  const dt=v=>{v=(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);const m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:null};
+  const rows=[];
+  for(const l of lines.slice(1)){const c=split(l);const symbol=(c[iS]||'').toUpperCase().replace(/\s+/g,'');const shares=num(c[iQ]),buy_price=num(c[iP]);
+    if(symbol&&!/^total/i.test(symbol)&&shares>0&&buy_price>0)rows.push({symbol,shares,buy_price,buy_date:iD>=0?dt(c[iD]):null})}
+  return{rows,err:rows.length?'':'No valid rows found (need symbol, quantity > 0 and price > 0).'};
+}
+let impRows=[];
+function previewImport(){
+  $('#imp-err').textContent='';$('#imp-out').innerHTML='';
+  const r=parseTable($('#imp-text').value);
+  if(r.err){$('#imp-err').textContent=r.err;return}
+  impRows=r.rows;
+  $('#imp-out').innerHTML=`<table><tr><th>Symbol</th><th>Shares</th><th>Avg price</th><th>Date</th></tr>${impRows.map(x=>`<tr><td>${esc(x.symbol)}</td><td>${x.shares}</td><td>${x.buy_price}</td><td>${x.buy_date||'<span class="mut">default</span>'}</td></tr>`).join('')}</table>
+   <button class="btn" id="imp-go" style="margin-top:14px">Import ${impRows.length} holding${impRows.length>1?'s':''}</button>`;
+  $('#imp-go').onclick=runImport;
+}
+async function runImport(){
+  const b=$('#imp-go');b.disabled=true;b.textContent='Importing…';$('#imp-err').textContent='';
+  try{
+    const d=await api('/api/holdings/import',{method:'POST',body:{rows:impRows,default_date:$('#imp-date').value,replace:$('#imp-rep').checked,cse:$('#imp-cse').checked}});
+    $('#imp-out').innerHTML=`<div class="up">Imported ${d.added} holding${d.added===1?'':'s'}.</div>`+(d.failed.length?`<div class="down" style="margin-top:8px">Skipped: ${d.failed.map(x=>esc(x.symbol)+' ('+esc(x.error)+')').join('; ')}</div>`:'');
+    $('#imp-text').value='';await refresh();
+  }catch(e){$('#imp-err').textContent=e.message;b.disabled=false;b.textContent='Retry import'}
+}
+async function runPortfolioForecast(){
+  const b=$('#pf-go');b.disabled=true;b.textContent='Running…';$('#pf-err').textContent='';
+  try{
+    const d=await api('/api/forecast/portfolio?days='+$('#pf-days').value);
+    if(!d.items.length){$('#pf-out').innerHTML='<div class="empty">Add holdings first.</div>';return}
+    const sg=s=>`<span class="sigpill ${s>0?'b':s<0?'s':'h'}">${s>0?'BUY':s<0?'SELL':'HOLD'}</span>`;
+    const row=x=>x.error?`<tr><td><b>${esc(x.symbol)}</b><div class="mut xs">${esc(x.name)}</div></td><td colspan="5" class="mut">${esc(x.error)}</td></tr>`
+     :`<tr data-an="${esc(x.symbol)}" style="cursor:pointer"><td><b>${esc(x.symbol)}</b><div class="mut xs">${esc(x.name)}</div></td><td>${money(x.last,x.symbol)}</td><td>${money(x.expected,x.symbol)}</td><td class="${cls(x.expected_pct)}">${pct(x.expected_pct)}</td><td>${num(x.low)} – ${num(x.high)}</td><td>${sg(x.signal)}</td></tr>`;
+    const tot=Object.entries(d.totals).map(([c,t])=>{const p=(t.expected/t.value-1)*100,s=c==='LKR'?'LKR ':'$';
+      return `<div class="outlook" style="margin:14px 0 0"><div><span class="mut xs">${c} holdings now</span><b>${s}${num(t.value)}</b></div><div><span class="mut xs">Predicted in ${d.days} trading days</span><b class="${cls(p)}">${s}${num(t.expected)} (${pct(p)})</b></div><div><span class="mut xs">95% range</span><b>${s}${num(t.low)} – ${s}${num(t.high)}</b></div></div>`}).join('');
+    $('#pf-out').innerHTML=`<table><tr><th>Asset</th><th>Price</th><th>Predicted</th><th>Change</th><th>95% range</th><th>Signal</th></tr>${d.items.map(row).join('')}</table>${tot}<p class="mut xs" style="margin-top:12px">Click a row for the full chart. Currencies are totalled separately. Predictions are statistical estimates, not financial advice.</p>`;
+  }catch(e){$('#pf-err').textContent=e.message}
+  b.disabled=false;b.textContent='Run predictions';
+}
+
 /* ---------- events ---------- */
 async function post(url,body,errEl,done){
   errEl.textContent='';
@@ -146,6 +200,14 @@ function bind(){
   $('#m-sym').onkeydown=e=>{if(e.key==='Enter')analyze()};
   $('#m-watch').onclick=()=>post('/api/watchlist',{symbol:S.fc.symbol.replace(/\.CSE$/,''),cse:isCse(S.fc.symbol)},$('#m-err'),async()=>{await loadWatch();notifs()});
   $('#m-asset').onclick=()=>{go('assets');$('#a-sym').value=S.fc.symbol.replace(/\.CSE$/,'');$('#a-cse').checked=isCse(S.fc.symbol);$('#a-px').value=S.fc.outlook.last;$('#a-sh').focus()};
+  $('#imp-prev').onclick=previewImport;
+  $('#pf-go').onclick=runPortfolioForecast;
+  $('#imp-date').max=new Date().toISOString().slice(0,10);$('#imp-date').value=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
+  $('#imp-file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+    if(/\.xlsx?$/i.test(f.name)){
+      r.onload=()=>{try{const wb=XLSX.read(r.result,{type:'array'});$('#imp-text').value=XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]],{FS:'\t'});previewImport()}catch{$('#imp-err').textContent='Could not read that Excel file.'}};
+      r.readAsArrayBuffer(f);
+    }else{r.onload=()=>{$('#imp-text').value=r.result;previewImport()};r.readAsText(f)}};
   $('#dl-f').onclick=()=>csv('forecast.csv',S.fc.forecast);
   $('#dl-h').onclick=()=>csv('historical.csv',S.fc.history);
   const si=$('#search');

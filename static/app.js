@@ -21,14 +21,15 @@ async function api(p,o={}){
 }
 const cross={id:'cross',afterDraw(c){const a=c.tooltip?.getActiveElements?.();if(a&&a.length){const x=a[0].element.x,{top,bottom}=c.chartArea,g=c.ctx;g.save();g.strokeStyle='rgba(167,139,250,.5)';g.beginPath();g.moveTo(x,top);g.lineTo(x,bottom);g.stroke();g.restore()}}};
 const grad=(c,col)=>{const a=c.chart.chartArea;if(!a)return null;const g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,col);g.addColorStop(1,'rgba(139,92,246,0)');return g};
-const axes=()=>({x:{grid:{display:false},ticks:{color:css('--mut'),maxTicksLimit:10,callback(v){return fmtD(this.getLabelForValue(v))}}},
+const narrow=()=>window.innerWidth<600;
+const axes=()=>({x:{grid:{display:false},ticks:{color:css('--mut'),maxTicksLimit:narrow()?5:10,callback(v){return fmtD(this.getLabelForValue(v))}}},
   y:{grid:{color:css('--line'),borderDash:[4,4]},ticks:{color:css('--mut'),callback:v=>(S.cur==='LKR'?'':'$')+Intl.NumberFormat('en',{notation:'compact'}).format(v)}}});
 
 /* ---------- navigation & theme ---------- */
 function go(v){
   $$('.view').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));
   $$('.nav[data-v]').forEach(e=>e.classList.toggle('on',e.dataset.v===v));
-  $('#title').textContent=v;location.hash=v;
+  $('#title').textContent=v;location.hash=v;window.scrollTo(0,0);
   if(v==='market'&&!$('#overview').children.length)loadOverview();
 }
 function setTheme(t){document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
@@ -114,11 +115,11 @@ async function loadChart(){
    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:36}},animation:{duration:600},
     plugins:{legend:{display:false},tooltip:{enabled:false}},
     scales:{
-     x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:10,maxRotation:0,font:{size:12},
+     x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:narrow()?5:10,maxRotation:0,font:{size:12},
         color:c=>{const ch=c.chart;if(ch._ax==null||c.index==null)return css('--mut');return Math.abs(ch.scales.x.getPixelForValue(c.index)-ch._ax)<46?'transparent':css('--mut')},
         callback(v){return fmtD(this.getLabelForValue(v))}}},
      y:{grace:'8%',grid:{color:css('--line'),borderDash:[5,5],drawTicks:false},border:{display:false},
-        ticks:{color:css('--mut'),font:{size:12},padding:12,maxTicksLimit:8,callback:v=>Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v)}}}},
+        ticks:{color:css('--mut'),font:{size:12},padding:12,maxTicksLimit:narrow()?6:8,callback:v=>Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}).format(v)}}}},
    plugins:[tradPlugin]});
   pChart._onIdx=head;
 }
@@ -224,6 +225,8 @@ async function runPortfolioForecast(){
   b.disabled=false;b.textContent='Run predictions';
 }
 
+function stackify(root){if(!root)return;root.querySelectorAll('table').forEach(t=>{t.classList.add('stack');const hs=[...t.querySelectorAll('th')].map(x=>x.textContent);
+  t.querySelectorAll('tr').forEach(r=>[...r.children].forEach((c,i)=>{if(c.tagName==='TD')c.dataset.label=hs[i]||''}))})}
 /* ---------- events ---------- */
 async function post(url,body,errEl,done){
   errEl.textContent='';
@@ -241,12 +244,16 @@ function bind(){
     }
     if(!e.target.closest('.searchbox'))$('#sugg').hidden=true;
     if(!e.target.closest('.pop'))$('#notifs').hidden=true;
+    if(!e.target.closest('.user'))$('#umenu').hidden=true;
   });
   $$('.theme button').forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
   $('#range').onchange=loadChart;
   $('#cur').onchange=e=>{S.pick=e.target.value;refresh()};
   $('#bell').onclick=()=>$('#notifs').hidden=!$('#notifs').hidden;
-  $('#logout').onclick=async()=>{await api('/api/logout',{method:'POST'}).catch(()=>{});location.href='/login'};
+  const out=async()=>{await api('/api/logout',{method:'POST'}).catch(()=>{});location.href='/login'};
+  $('#logout').onclick=out;$('#logout2').onclick=out;
+  $('#userbtn').onclick=e=>{if(!e.target.closest('#umenu'))$('#umenu').hidden=!$('#umenu').hidden};
+  ['#assetsTable','#pf-out','#m-sig'].forEach(s=>new MutationObserver(()=>stackify($(s))).observe($(s),{childList:true}));
   $('#tryai').onclick=()=>analyze(S.h[0]?.symbol||'AAPL',isCse(S.h[0]?.symbol));
   $('#a-dt').max=new Date().toISOString().slice(0,10);$('#a-dt').value=$('#a-dt').max;
   $('#a-go').onclick=()=>post('/api/holdings',{symbol:$('#a-sym').value,shares:+$('#a-sh').value,buy_price:+$('#a-px').value,buy_date:$('#a-dt').value||null,cse:$('#a-cse').checked},$('#a-err'),async()=>{['#a-sym','#a-sh','#a-px'].forEach(s=>$(s).value='');await refresh()});

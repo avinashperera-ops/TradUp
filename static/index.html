@@ -1,26 +1,28 @@
 <!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>TradUp</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>TradUp</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script></head>
 <body><div class="shell">
 <aside class="side">
  <div class="logo"><i></i>TradUp</div>
  <div class="lbl">MENU</div>
- <button class="nav on" data-v="dashboard">⌂ Dashboard</button>
- <button class="nav" data-v="assets">◍ Assets <b id="cnt" hidden></b></button>
- <button class="nav" data-v="market">◩ Market</button>
- <button class="nav" data-v="watchlist">☆ Watchlist</button>
+ <button class="nav on" data-v="dashboard"><i>⌂</i><span>Dashboard</span></button>
+ <button class="nav" data-v="assets"><i>◍</i><span>Assets</span><b id="cnt" hidden></b></button>
+ <button class="nav" data-v="market"><i>◩</i><span>Market</span></button>
+ <button class="nav" data-v="watchlist"><i>☆</i><span>Watchlist</span></button>
  <div class="theme"><button data-t="light">☀ Light</button><button data-t="dark" class="on">☾ Dark</button></div>
  <div class="lbl" style="margin-top:22px">MANAGE</div>
- <button class="nav" id="logout">⏻ Sign out</button>
+ <button class="nav" id="logout"><i>⏻</i><span>Sign out</span></button>
  <div class="promo"><div class="ic">✦</div><h4>Invest with AI</h4><p>Get accurate market insights</p><button id="tryai">✦ Try AI Now</button></div>
 </aside>
 <main class="main">
  <div class="top">
+  <div class="mlogo"><i></i>TradUp</div>
   <h1 id="title">Dashboard</h1>
   <div class="searchbox"><span class="s">⌕</span><input id="search" placeholder="Search any ticker or company" autocomplete="off"><kbd>⌘ K</kbd><div class="drop" id="sugg" hidden></div></div>
   <div class="pop"><button class="circ" id="bell">🔔</button><div class="drop" id="notifs" hidden></div></div>
-  <div class="user"><div class="av" id="av"></div><div><b id="uname"></b><span class="mut sm" id="uemail"></span></div></div>
+  <div class="user" id="userbtn"><div class="av" id="av"></div><div class="uinfo"><b id="uname"></b><span class="mut sm" id="uemail"></span></div>
+   <div class="drop umenu" id="umenu" hidden><div class="theme"><button data-t="light">☀ Light</button><button data-t="dark" class="on">☾ Dark</button></div><button id="logout2">⏻ Sign out</button></div></div>
  </div>
 
  <section class="view on" id="v-dashboard"><div class="grid"><div>

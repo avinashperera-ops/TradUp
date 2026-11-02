@@ -1,4 +1,4 @@
-import os, secrets, datetime as dt
+import os, re, secrets, threading, datetime as dt
 import bcrypt, jwt
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
@@ -19,6 +19,7 @@ app = FastAPI(title="TradUp", docs_url=None, redoc_url=None)
 app.add_middleware(SessionMiddleware, secret_key=SECRET, session_cookie="oauth_session", same_site="lax", max_age=900)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 Base.metadata.create_all(engine)
+threading.Thread(target=market.cse_directory, daemon=True).start()   # warm the Colombo name list
 
 oauth = OAuth()
 if GOOGLE:
@@ -233,39 +234,46 @@ class ImportIn(BaseModel):
 
 
 def resolve_symbol(raw: str, mode: str):
-    """Work out which market a spreadsheet symbol belongs to and confirm it has live data."""
+    """Work out which market a spreadsheet entry belongs to. Returns (symbol, quote, via, error)."""
     s = raw.strip().upper()
+    tickerish = bool(re.match(r"^[A-Z0-9]{1,8}(\.[A-Z0-9]{1,6})?$", s))
     if mode == "cse":
-        cands = [market.normalize(s, True)]
+        cands = [market.normalize(s, True)] if tickerish else []
     elif mode == "global":
         cands = [s]
     else:
         n = market.normalize(s, False)
         if market.is_cse(n):
             cands = [n]
-        elif " " in s:
-            cands = [s]
+        elif not tickerish:
+            cands = []
         else:
             cands = [market.normalize(s, True), s]   # Sri Lankan first: the CSE feed rejects non-CSE codes
     for c in cands:
         q = market.quote(c)
         if q:
-            return c, q
-    if " " in s and mode != "cse":                  # company names: ask Yahoo's search
+            return c, q, "ticker", None
+    err = None
+    if mode != "global":                              # a company name, or a short/old Colombo code
+        sym, _, err = market.find_cse_by_name(raw)
+        if sym:
+            q = market.quote(sym)
+            if q:
+                return sym, q, "name", None
+    if mode != "cse":
         for hit in market.search(raw.strip())[:2]:
             c = hit["symbol"].upper()
             q = market.quote(c)
             if q:
-                return c, q
-    return None, None
+                return c, q, "name", None
+    return None, None, None, err or "No live market data found for this entry"
 
 
 @app.post("/api/holdings/import")
 def import_holdings(b: ImportIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
     prepared = market.parallel(lambda r: resolve_symbol(r.symbol, b.mode), b.rows)
     items = [{"input": r.symbol, "symbol": p[0], "name": (p[1] or {}).get("name"), "price": (p[1] or {}).get("price"),
-              "currency": cur_of(p[0]) if p[0] else None,
-              "error": None if p[0] else "No live market data found. Check the ticker or choose the market."}
+              "currency": cur_of(p[0]) if p[0] else None, "via": p[2], "error": p[3]}
              for r, p in zip(b.rows, prepared)]
     if b.dry_run:
         return {"items": items}
@@ -375,6 +383,18 @@ def overview(u: User = Depends(current_user)):
         q = market.quote(p[0])
         return {"symbol": p[0], "name": p[1], **q} if q else None
     return [r for r in market.parallel(one, market.OVERVIEW) if r]
+
+
+@app.get("/api/cse/directory")
+def cse_dir(q: str = "", u: User = Depends(current_user)):
+    """Diagnostics: how many Colombo companies are known, and what a name resolves to."""
+    d = market.cse_directory()
+    out = {"companies": len(d), "with_names": sum(1 for v in d.values() if v)}
+    if q:
+        sym, name, err = market.find_cse_by_name(q)
+        out["match"] = {"symbol": sym, "name": name, "error": err}
+        out["contains"] = [{"symbol": k, "name": v} for k, v in d.items() if q.upper() in v.upper() or q.upper() in k][:15]
+    return out
 
 
 @app.get("/api/search")

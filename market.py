@@ -1,5 +1,5 @@
 """Live market data (Yahoo Finance; cse.lk for Colombo quotes) and the forecast model."""
-import os, re, time, requests
+import os, re, time, threading, requests
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -36,6 +36,94 @@ def normalize(symbol: str, cse: bool = False) -> str:
     if cse:
         return (s if "." in s else s + ".N0000") + ".CSE"
     return s
+
+
+# ---------- Colombo company directory (name -> ticker) ----------
+_DIR = {"t": 0.0, "items": {}}
+_DIR_LOCK = threading.Lock()
+_UA = {"User-Agent": "Mozilla/5.0 TradUp"}
+_CSE_SYM = re.compile(r"^[A-Z0-9]{1,8}\.[A-Z]\d{4}$")
+_STOP = {"PLC", "LIMITED", "LTD", "COMPANY", "CO", "THE", "OF", "AND", "PVT", "THE"}
+
+
+def _collect(obj, out):
+    """Walk any JSON and pick up every {symbol, name} pair whose symbol looks like a CSE code."""
+    if isinstance(obj, list):
+        for x in obj:
+            if isinstance(x, dict):
+                low = {k.lower(): k for k in x}
+                sk = next((low[k] for k in ("symbol", "securitysymbol", "code", "securitycode") if k in low), None)
+                nk = next((low[k] for k in ("name", "securityname", "companyname", "company", "description") if k in low), None)
+                if sk and isinstance(x[sk], str) and _CSE_SYM.match(x[sk].strip().upper()):
+                    nm = x[nk] if nk and isinstance(x[nk], str) else ""
+                    out[x[sk].strip().upper()] = nm.strip() or out.get(x[sk].strip().upper(), "")
+            _collect(x, out)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            _collect(v, out)
+
+
+def cse_directory(force: bool = False) -> dict:
+    """{ 'LLUB.N0000': 'CHEVRON LUBRICANTS LANKA PLC', ... } built from the exchange's public feeds (cached 6h)."""
+    with _DIR_LOCK:
+        if _DIR["items"] and not force and time.time() - _DIR["t"] < 6 * 3600:
+            return _DIR["items"]
+        out: dict = {}
+        for ep in ("tradeSummary", "todaySharePrice"):
+            try:
+                _collect(requests.post(CSE_API + ep, timeout=25, headers=_UA).json(), out)
+            except Exception:
+                pass
+        missing = [k for k, v in out.items() if not v]
+        if missing:   # feed gave codes but no names: look the names up once
+            for k, n in zip(missing[:400], parallel(lambda c: (cse_quote(c + ".CSE") or {}).get("name", ""), missing[:400])):
+                out[k] = n
+        if out:
+            _DIR["items"], _DIR["t"] = out, time.time()
+        return out
+
+
+def _tokens(text: str):
+    t = re.sub(r"[^A-Z0-9 ]", " ", text.upper().replace("&", " AND "))
+    return [w for w in t.split() if w not in _STOP]
+
+
+def _hit(q: str, words) -> bool:
+    return any(w == q or (len(q) >= 4 and w.startswith(q)) or (len(w) >= 4 and q.startswith(w)) for w in words)
+
+
+def find_cse_by_name(query: str):
+    """Match free text such as 'CHEVRON.N', 'VALLIBEL POWER.N' or 'DOCKYARD' to a Colombo ticker.
+    Returns (symbol_with_.CSE, name, None) or (None, None, reason)."""
+    d = cse_directory()
+    if not d:
+        return None, None, "The Colombo company list is unavailable right now"
+    q = query.strip().upper()
+    cls = None
+    m = re.match(r"^(.+?)[\s.]([NXPWD])(\d{0,4})$", q)
+    if m:
+        q, cls = m.group(1), m.group(2)
+    qt = _tokens(q)
+    if not qt:
+        return None, None, "Empty name"
+    scored = []
+    for sym, name in d.items():
+        if cls and sym.split(".")[1][0] != cls:
+            continue
+        words = _tokens(name) + [sym.split(".")[0]]
+        got = sum(1 for t in qt if _hit(t, words))
+        if got == len(qt) or (len(qt) >= 3 and got / len(qt) >= 0.75):
+            rank = "NXPWD".find(sym.split(".")[1][0])
+            scored.append((-got / len(qt), len(words) - got, rank if rank >= 0 else 9, sym, name))
+    if not scored:
+        return None, None, "No Colombo company matches that name"
+    scored.sort()
+    top = scored[0]
+    others = {x[3].split(".")[0]: x[4] for x in scored if x[3].split(".")[0] != top[3].split(".")[0] and x[0] == top[0]}
+    if others and top[1] > 0 and len(others) >= 1 and abs(scored[0][1] - min(x[1] for x in scored if x[3].split(".")[0] in others)) <= 2:
+        names = [top[4]] + list(others.values())[:2]
+        return None, None, "Ambiguous: could be " + " or ".join(names)
+    return top[3] + ".CSE", top[4], None
 
 
 def cse_quote(symbol: str):

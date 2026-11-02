@@ -233,25 +233,27 @@ function loadSheets(sheets){
   $('#imp-sheetl').hidden=names.length<2;$('#imp-sheet').innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join('');$('#imp-sheet').value=best;
   applySheet(best);
 }
-function refreshPreview(){
+function refreshPreviewNow(){refreshPreview(true)}
+function refreshPreview(keep){
   clearTimeout(IMP.t);
   IMP.t=setTimeout(async()=>{
     const seq=++IMP.seq;$('#imp-err').textContent='';
-    IMP.rows=buildRows(IMP.grid,IMP.hdr,IMP.map).slice(0,200);
+    if(keep!==true)IMP.rows=buildRows(IMP.grid,IMP.hdr,IMP.map).slice(0,200);
     if(!IMP.rows.length){$('#imp-out').innerHTML='<div class="empty">No usable rows with these columns. Choose the right Symbol, Quantity and Buy price columns above (or change the header row).</div>';return}
     $('#imp-out').innerHTML='<div class="mut sm" style="padding:12px">Checking symbols against live market data…</div>';
     try{
       const d=await api('/api/holdings/import',{method:'POST',body:{rows:IMP.rows,default_date:$('#imp-date').value,replace:$('#imp-rep').checked,mode:$('#imp-mode').value,dry_run:true}});
       if(seq!==IMP.seq)return;IMP.items=d.items;renderPreview();
     }catch(e){if(seq===IMP.seq){$('#imp-out').innerHTML='';$('#imp-err').textContent=e.message}}
-  },300);
+  },keep===true?0:300);
 }
 function renderPreview(){
   const ok=IMP.items.filter(i=>!i.error).length,bad=IMP.items.length-ok;
   $('#imp-out').innerHTML=`<table><tr><th>In your file</th><th>Matched</th><th>Shares</th><th>Buy price</th><th>Date</th><th>Price now</th></tr>${IMP.rows.map((r,k)=>{const it=IMP.items[k]||{};
-   return `<tr><td>${esc(r.symbol)}</td><td>${it.error?`<span class="down">${esc(it.error)}</span>`:`<b>${esc(it.symbol)}</b>${it.name?`<div class="mut xs">${esc(it.name)}</div>`:''}`}</td><td>${r.shares}</td><td>${r.buy_price}</td><td>${r.buy_date||'<span class="mut">default</span>'}</td><td>${it.price!=null?money(it.price,it.symbol):'—'}</td></tr>`}).join('')}</table>
+   return `<tr><td>${esc(r.symbol)}</td><td>${it.error?`<span class="down">${esc(it.error)}</span>`:`<b>${esc(it.symbol)}</b>${it.name?`<div class="mut xs">${esc(it.name)}</div>`:''}${it.via==='name'?'<div class="xs up">matched by name</div>':''}`}${it.error?`<div style="margin-top:6px"><input class="pill" data-fix="${k}" placeholder="Type the ticker" style="min-width:0;width:150px;padding:6px 10px;font-size:13px"></div>`:''}</td><td>${r.shares}</td><td>${r.buy_price}</td><td>${r.buy_date||'<span class="mut">default</span>'}</td><td>${it.price!=null?money(it.price,it.symbol):'—'}</td></tr>`}).join('')}</table>
    <div style="margin-top:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn" id="imp-go" ${ok?'':'disabled'}>Import ${ok} holding${ok===1?'':'s'}</button>${bad?`<span class="down sm">${bad} row${bad>1?'s':''} can't be matched and will be skipped</span>`:''}</div>`;
   $('#imp-go').onclick=runImport;
+  $$('#imp-out [data-fix]').forEach(el=>el.onchange=()=>{const v=el.value.trim();if(v){IMP.rows[+el.dataset.fix].symbol=v.toUpperCase();refreshPreviewNow()}});
 }
 async function runImport(){
   const b=$('#imp-go');b.disabled=true;b.textContent='Importing…';$('#imp-err').textContent='';

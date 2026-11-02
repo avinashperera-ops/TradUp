@@ -54,15 +54,24 @@
    <label>Buy date<input class="pill" id="a-dt" type="date"></label>
    <label class="chk"><input type="checkbox" id="a-cse"> Sri Lankan CSE</label>
    <button class="btn" id="a-go">Add asset</button></div><div class="err" id="a-err"></div></div>
-  <div class="card" style="margin-top:24px"><h3 style="font-weight:500;font-size:22px">Import from ATrad</h3>
-   <p class="mut sm" style="margin-top:6px">In ATrad, open your portfolio, select the table, copy it and paste it below. You can also upload the Excel file ATrad exports. It needs columns for symbol, quantity and average price.</p>
-   <textarea id="imp-text" class="pill" rows="5" style="width:100%;border-radius:16px;margin-top:12px;resize:vertical" placeholder="Paste your portfolio table here"></textarea>
-   <div class="form" style="margin-top:12px">
-    <label>or upload ATrad Excel / CSV<input type="file" id="imp-file" accept=".xlsx,.xls,.csv,.txt,.tsv"></label>
-    <label>If there are no dates, treat as held since<input class="pill" type="date" id="imp-date"></label>
-    <label class="chk"><input type="checkbox" id="imp-cse" checked> Sri Lankan (CSE) shares</label>
-    <label class="chk"><input type="checkbox" id="imp-rep" checked> Replace my existing holdings of the same symbols</label>
-    <button class="btn" id="imp-prev">Preview</button></div>
+  <div class="card" style="margin-top:24px"><h3 style="font-weight:500;font-size:22px">Import your holdings</h3>
+   <p class="mut sm" style="margin-top:6px">Upload any Excel or CSV file (ATrad, another broker, or your own sheet), or paste a table. Columns are detected automatically, and you can correct them below.</p>
+   <textarea id="imp-text" class="pill" rows="4" style="width:100%;border-radius:16px;margin-top:12px;resize:vertical" placeholder="Or paste a table here (copied from Excel, a website or a PDF)"></textarea>
+   <div class="form" style="margin-top:12px"><label>Upload Excel / CSV<input type="file" id="imp-file" accept=".xlsx,.xls,.csv,.txt,.tsv"></label><button class="btn ghost" id="imp-prev">Read pasted table</button></div>
+   <div id="imp-map" hidden>
+    <div class="form" style="margin-top:16px">
+     <label id="imp-sheetl" hidden>Sheet<select class="pill" id="imp-sheet"></select></label>
+     <label>Header row<input class="pill" id="imp-hdr" type="number" min="1" style="min-width:80px;width:90px"></label>
+     <label>Market<select class="pill" id="imp-mode"><option value="auto">Auto-detect</option><option value="cse">All Sri Lankan (CSE)</option><option value="global">All global</option></select></label>
+     <label>If no dates, held since<input class="pill" type="date" id="imp-date"></label>
+     <label class="chk"><input type="checkbox" id="imp-rep" checked> Replace my existing holdings of the same symbols</label></div>
+    <div class="form" style="margin-top:12px">
+     <label>Symbol / company<select class="pill" id="imp-c-sym"></select></label>
+     <label>Quantity<select class="pill" id="imp-c-qty"></select></label>
+     <label>Buy price<select class="pill" id="imp-c-price"></select></label>
+     <label>Total cost (if no price)<select class="pill" id="imp-c-cost"></select></label>
+     <label>Date (optional)<select class="pill" id="imp-c-date"></select></label></div>
+   </div>
    <div id="imp-out" class="tw" style="margin-top:14px"></div><div class="err" id="imp-err"></div></div>
   <div class="card" style="margin-top:24px"><div class="head"><h3 style="font-weight:500;font-size:22px">Predictions for all holdings</h3>
    <div style="display:flex;gap:10px"><select class="pill" id="pf-days"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select>

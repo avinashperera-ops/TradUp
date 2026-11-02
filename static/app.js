@@ -172,42 +172,93 @@ function csv(name,rows){
 }
 
 
-function parseTable(text){
-  let lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
-  const hi=lines.findIndex(l=>/symbol|security|code|counter|stock/i.test(l)&&/qty|quantity|shares|units|holding|balance/i.test(l));
-  if(hi>0)lines=lines.slice(hi);   // skip title rows above the header (ATrad exports have one)
-  if(lines.length<2)return{rows:[],err:'Include the header row and at least one share.'};
-  const d=lines[0].includes('\t')?'\t':lines[0].includes(';')?';':',';
-  const split=l=>(d===','?l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/):l.split(d)).map(x=>x.trim().replace(/^"|"$/g,''));
-  const head=split(lines[0]).map(x=>x.toLowerCase());
-  const f=re=>head.findIndex(x=>re.test(x));
-  const iS=f(/symbol|security|code|counter|stock|company/),iQ=f(/qty|quantity|shares|holding|balance|units/);
-  let iP=f(/avg|average/);if(iP<0)iP=f(/buy.*price|purchase|cost.*(price|share)|price/);
-  const iD=f(/date/);
-  if(iS<0||iQ<0||iP<0)return{rows:[],err:`Couldn't find these columns: ${[iS<0&&'symbol',iQ<0&&'quantity',iP<0&&'average price'].filter(Boolean).join(', ')}. Found: ${head.join(', ')}`};
-  const num=v=>parseFloat(String(v??'').replace(/[^0-9.\-]/g,''));
-  const dt=v=>{v=(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);const m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:null};
-  const rows=[];
-  for(const l of lines.slice(1)){const c=split(l);const symbol=(c[iS]||'').toUpperCase().replace(/\s+/g,'');const shares=num(c[iQ]),buy_price=num(c[iP]);
-    if(symbol&&!/^total/i.test(symbol)&&shares>0&&buy_price>0)rows.push({symbol,shares,buy_price,buy_date:iD>=0?dt(c[iD]):null})}
-  return{rows,err:rows.length?'':'No valid rows found (need symbol, quantity > 0 and price > 0).'};
+/*PURE-START*/
+function okDate(y,m,d){return(m>=1&&m<=12&&d>=1&&d<=31&&y>1990&&y<2100)?`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`:null}
+function cellNorm(v){if(v instanceof Date){return isNaN(v)?'':new Date(v.getTime()+43200000).toISOString().slice(0,10)}if(v==null)return'';return typeof v==='number'?v:String(v).trim()}
+function toNum(v){if(typeof v==='number')return isFinite(v)?v:null;const s=String(v??'').replace(/rs\.?|lkr|usd|\$|₨|,|\s/gi,'');const m=s.match(/^\(?(-?\d+(?:\.\d+)?)\)?$/);if(!m)return null;const x=parseFloat(m[1]);return /^\(/.test(s)?-Math.abs(x):x}
+function toDate(v){if(typeof v==='number')return null;const s=String(v??'').trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return okDate(+m[1],+m[2],+m[3]);
+  m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);if(m){let a=+m[1],b=+m[2],y=+m[3];if(y<100)y+=2000;let d=a,mo=b;if(a<=12&&b>12){mo=a;d=b}return okDate(y,mo,d)}return null}
+const KW={sym:/symbol|ticker|security|scrip|stock|company|counter|instrument|code|name/i,qty:/qty|quantity|shares|units|holding|balance|volume/i,price:/price|cost|avg|average|bought|buy|purchase|rate/i,date:/date|bought on|purchased/i};
+function findHeader(g){let best=0,bi=0;for(let i=0;i<Math.min(g.length,40);i++){let s=0;const r=g[i]||[];for(const c of r){const t=typeof c==='string'?c:'';if(!t)continue;if(KW.sym.test(t))s++;if(KW.qty.test(t))s++;if(KW.price.test(t))s++;if(KW.date.test(t))s++}
+  if(r.filter(c=>typeof c==='string'&&c).length>=3)s+=1;if(s>best){best=s;bi=i}}return bi}
+function colStats(rows,ci){let n=0,num=0,int=0,date=0,tick=0;for(const r of rows){const v=r[ci];if(v===''||v==null)continue;n++;const x=toNum(v);if(x!=null){num++;if(Number.isInteger(x))int++}if(toDate(v))date++;
+  if(/^[A-Z]{2,6}(\.[A-Z0-9]{1,6})?$/.test(String(v).trim().toUpperCase()))tick++}const k=n||1;return{n,num:num/k,int:int/k,date:date/k,tick:tick/k}}
+function autoMap(grid,hdr){
+  const head=grid[hdr]||[],width=Math.max(head.length,...grid.slice(hdr,hdr+60).map(r=>r.length),0);
+  const rows=grid.slice(hdr+1,hdr+201).filter(r=>r.filter(c=>c!=='').length>=2);
+  const cols=[];for(let ci=0;ci<width;ci++)cols.push({ci,t:String(head[ci]??'').toLowerCase(),st:colStats(rows,ci)});
+  const symS=c=>{let s=0;if(/symbol|ticker|security|scrip|instrument|counter/.test(c.t))s+=8;else if(/company|stock|code|name/.test(c.t))s+=5;s+=c.st.tick*10;if(c.st.num>.5)s-=20;if(c.st.date>.5)s-=20;if(!c.st.n)s-=50;return s};
+  const qtyS=c=>{const t=c.t.trim();let s=0;if(/^(qty|quantity|shares|units|no\.? of shares|number of shares|no\.? of units)$/.test(t))s+=12;else if(/qty|quantity|shares|units/.test(t))s+=8;else if(/holding|balance|volume/.test(t))s+=3;
+    if(/%|price|value|cost|amount|gain|loss|change|unsettled|available|cleared/.test(t))s-=10;if(c.st.num<.5)s-=30;else s+=4+(c.st.int>.8?3:0);return s};
+  const prS=c=>{const t=c.t;let s=0;if(/bought|buy(ing)?\s*price|avg|average|purchase|entry|acquisition|cost\s*price|unit\s*cost|price\s*paid/.test(t))s+=10;else if(/price|rate/.test(t))s+=3;else if(/cost/.test(t))s+=2;
+    if(/mkt|market|current|last|ltp|close|traded|today|b\.?e\.?s|break|total|value|portfolio|%|gain|loss|change|commission|proceeds/.test(t))s-=12;if(c.st.num<.8)s-=30;else s+=3;return s};
+  const coS=c=>{const t=c.t;let s=0;if(/total cost|invested|book (value|cost)|cost basis|purchase value|buy value|portfolio|amount invested|^amount$/.test(t))s+=8;if(/mkt|market|current|gain|loss|change|%|price|traded/.test(t))s-=12;if(c.st.num<.8)s-=30;return s};
+  const dS=c=>{let s=0;if(/date|bought on|purchased on/.test(c.t))s+=8;if(c.st.date>.5)s+=8;else s-=30;return s};
+  const used=new Set(),pick=(fn,min)=>{let b=-1,bs=min;for(const c of cols){if(used.has(c.ci))continue;const s=fn(c);if(s>bs){bs=s;b=c.ci}}if(b>=0)used.add(b);return b};
+  const sym=pick(symS,3),qty=pick(qtyS,4),price=pick(prS,4),cost=price<0?pick(coS,3):-1,date=pick(dS,6);
+  return{sym,qty,price,cost,date};
 }
-let impRows=[];
-function previewImport(){
-  $('#imp-err').textContent='';$('#imp-out').innerHTML='';
-  const r=parseTable($('#imp-text').value);
-  if(r.err){$('#imp-err').textContent=r.err;return}
-  impRows=r.rows;
-  $('#imp-out').innerHTML=`<table><tr><th>Symbol</th><th>Shares</th><th>Avg price</th><th>Date</th></tr>${impRows.map(x=>`<tr><td>${esc(x.symbol)}</td><td>${x.shares}</td><td>${x.buy_price}</td><td>${x.buy_date||'<span class="mut">default</span>'}</td></tr>`).join('')}</table>
-   <button class="btn" id="imp-go" style="margin-top:14px">Import ${impRows.length} holding${impRows.length>1?'s':''}</button>`;
+function buildRows(grid,hdr,map){
+  const out=[];if(map.sym<0||map.qty<0)return out;
+  for(let i=hdr+1;i<grid.length;i++){const r=grid[i];
+    const sym=String(r[map.sym]??'').trim().toUpperCase();if(!sym||/^(TOTAL|SUM|GRAND)/.test(sym))continue;
+    const q=toNum(r[map.qty]);if(!(q>0))continue;
+    let p=map.price>=0?toNum(r[map.price]):null;
+    if(!(p>0)&&map.cost>=0){const c=toNum(r[map.cost]);if(c>0)p=c/q}
+    if(!(p>0))continue;
+    out.push({symbol:sym.slice(0,80),shares:q,buy_price:+p.toFixed(6),buy_date:map.date>=0?toDate(r[map.date]):null});
+  }
+  return out;
+}
+/*PURE-END*/
+const IMP={sheets:{},sheet:'',grid:[],hdr:0,map:{sym:-1,qty:-1,price:-1,cost:-1,date:-1},rows:[],items:[],seq:0,t:null};
+const colName=i=>{let s='',n=i+1;while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26)}return s};
+function textToGrid(t){const lines=t.replace(/\r/g,'').split('\n').filter(l=>l.trim());if(!lines.length)return[];
+  const d=lines.some(l=>l.includes('\t'))?'\t':lines.some(l=>l.includes(';'))?';':',';
+  const sp=l=>(d===','?l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/):l.split(d)).map(x=>cellNorm(x.trim().replace(/^"|"$/g,'')));return lines.map(sp)}
+function fillSelects(){
+  const g=IMP.grid,head=g[IMP.hdr]||[],w=Math.max(head.length,...g.slice(IMP.hdr,IMP.hdr+60).map(r=>r.length),0);
+  const opts=['<option value="-1">— none —</option>'];
+  for(let i=0;i<w;i++)opts.push(`<option value="${i}">${colName(i)}: ${esc(String(head[i]||'').slice(0,26)||'(blank)')}</option>`);
+  [['sym','#imp-c-sym'],['qty','#imp-c-qty'],['price','#imp-c-price'],['cost','#imp-c-cost'],['date','#imp-c-date']].forEach(([k,id])=>{const el=$(id);el.innerHTML=opts.join('');el.value=IMP.map[k]})
+}
+function applySheet(name){
+  IMP.sheet=name;IMP.grid=IMP.sheets[name]||[];IMP.hdr=findHeader(IMP.grid);IMP.map=autoMap(IMP.grid,IMP.hdr);
+  $('#imp-hdr').value=IMP.hdr+1;fillSelects();$('#imp-map').hidden=false;refreshPreview();
+}
+function loadSheets(sheets){
+  IMP.sheets=sheets;const names=Object.keys(sheets);
+  let best=names[0],bs=-1;
+  for(const n of names){const g=sheets[n],h=findHeader(g),m=autoMap(g,h),sc=(m.sym>=0)+(m.qty>=0)+((m.price>=0||m.cost>=0)?1:0);const rows=buildRows(g,h,m).length;const tot=sc*1000+rows;if(tot>bs){bs=tot;best=n}}
+  $('#imp-sheetl').hidden=names.length<2;$('#imp-sheet').innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join('');$('#imp-sheet').value=best;
+  applySheet(best);
+}
+function refreshPreview(){
+  clearTimeout(IMP.t);
+  IMP.t=setTimeout(async()=>{
+    const seq=++IMP.seq;$('#imp-err').textContent='';
+    IMP.rows=buildRows(IMP.grid,IMP.hdr,IMP.map).slice(0,200);
+    if(!IMP.rows.length){$('#imp-out').innerHTML='<div class="empty">No usable rows with these columns. Choose the right Symbol, Quantity and Buy price columns above (or change the header row).</div>';return}
+    $('#imp-out').innerHTML='<div class="mut sm" style="padding:12px">Checking symbols against live market data…</div>';
+    try{
+      const d=await api('/api/holdings/import',{method:'POST',body:{rows:IMP.rows,default_date:$('#imp-date').value,replace:$('#imp-rep').checked,mode:$('#imp-mode').value,dry_run:true}});
+      if(seq!==IMP.seq)return;IMP.items=d.items;renderPreview();
+    }catch(e){if(seq===IMP.seq){$('#imp-out').innerHTML='';$('#imp-err').textContent=e.message}}
+  },300);
+}
+function renderPreview(){
+  const ok=IMP.items.filter(i=>!i.error).length,bad=IMP.items.length-ok;
+  $('#imp-out').innerHTML=`<table><tr><th>In your file</th><th>Matched</th><th>Shares</th><th>Buy price</th><th>Date</th><th>Price now</th></tr>${IMP.rows.map((r,k)=>{const it=IMP.items[k]||{};
+   return `<tr><td>${esc(r.symbol)}</td><td>${it.error?`<span class="down">${esc(it.error)}</span>`:`<b>${esc(it.symbol)}</b>${it.name?`<div class="mut xs">${esc(it.name)}</div>`:''}`}</td><td>${r.shares}</td><td>${r.buy_price}</td><td>${r.buy_date||'<span class="mut">default</span>'}</td><td>${it.price!=null?money(it.price,it.symbol):'—'}</td></tr>`}).join('')}</table>
+   <div style="margin-top:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><button class="btn" id="imp-go" ${ok?'':'disabled'}>Import ${ok} holding${ok===1?'':'s'}</button>${bad?`<span class="down sm">${bad} row${bad>1?'s':''} can't be matched and will be skipped</span>`:''}</div>`;
   $('#imp-go').onclick=runImport;
 }
 async function runImport(){
   const b=$('#imp-go');b.disabled=true;b.textContent='Importing…';$('#imp-err').textContent='';
   try{
-    const d=await api('/api/holdings/import',{method:'POST',body:{rows:impRows,default_date:$('#imp-date').value,replace:$('#imp-rep').checked,cse:$('#imp-cse').checked}});
-    $('#imp-out').innerHTML=`<div class="up">Imported ${d.added} holding${d.added===1?'':'s'}.</div>`+(d.failed.length?`<div class="down" style="margin-top:8px">Skipped: ${d.failed.map(x=>esc(x.symbol)+' ('+esc(x.error)+')').join('; ')}</div>`:'');
-    $('#imp-text').value='';await refresh();
+    const d=await api('/api/holdings/import',{method:'POST',body:{rows:IMP.rows,default_date:$('#imp-date').value,replace:$('#imp-rep').checked,mode:$('#imp-mode').value,dry_run:false}});
+    $('#imp-out').innerHTML=`<div class="up">Imported ${d.added} holding${d.added===1?'':'s'}.</div>`+(d.failed.length?`<div class="down" style="margin-top:8px">Skipped: ${d.failed.map(x=>esc(x.symbol)).join(', ')}</div>`:'');
+    $('#imp-text').value='';$('#imp-map').hidden=true;await refresh();
   }catch(e){$('#imp-err').textContent=e.message;b.disabled=false;b.textContent='Retry import'}
 }
 async function runPortfolioForecast(){
@@ -253,7 +304,7 @@ function bind(){
   const out=async()=>{await api('/api/logout',{method:'POST'}).catch(()=>{});location.href='/login'};
   $('#logout').onclick=out;$('#logout2').onclick=out;
   $('#userbtn').onclick=e=>{if(!e.target.closest('#umenu'))$('#umenu').hidden=!$('#umenu').hidden};
-  ['#assetsTable','#pf-out','#m-sig'].forEach(s=>new MutationObserver(()=>stackify($(s))).observe($(s),{childList:true}));
+  ['#assetsTable','#pf-out','#m-sig','#imp-out'].forEach(s=>new MutationObserver(()=>stackify($(s))).observe($(s),{childList:true}));
   $('#tryai').onclick=()=>analyze(S.h[0]?.symbol||'AAPL',isCse(S.h[0]?.symbol));
   $('#a-dt').max=new Date().toISOString().slice(0,10);$('#a-dt').value=$('#a-dt').max;
   $('#a-go').onclick=()=>post('/api/holdings',{symbol:$('#a-sym').value,shares:+$('#a-sh').value,buy_price:+$('#a-px').value,buy_date:$('#a-dt').value||null,cse:$('#a-cse').checked},$('#a-err'),async()=>{['#a-sym','#a-sh','#a-px'].forEach(s=>$(s).value='');await refresh()});
@@ -263,14 +314,19 @@ function bind(){
   $('#m-sym').onkeydown=e=>{if(e.key==='Enter')analyze()};
   $('#m-watch').onclick=()=>post('/api/watchlist',{symbol:S.fc.symbol.replace(/\.CSE$/,''),cse:isCse(S.fc.symbol)},$('#m-err'),async()=>{await loadWatch();notifs()});
   $('#m-asset').onclick=()=>{go('assets');$('#a-sym').value=S.fc.symbol.replace(/\.CSE$/,'');$('#a-cse').checked=isCse(S.fc.symbol);$('#a-px').value=S.fc.outlook.last;$('#a-sh').focus()};
-  $('#imp-prev').onclick=previewImport;
   $('#pf-go').onclick=runPortfolioForecast;
   $('#imp-date').max=new Date().toISOString().slice(0,10);$('#imp-date').value=new Date(Date.now()-365*864e5).toISOString().slice(0,10);
-  $('#imp-file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  $('#imp-prev').onclick=()=>{const g=textToGrid($('#imp-text').value);if(g.length<2){$('#imp-err').textContent='Paste a table with a header row and at least one holding.';return}loadSheets({'Pasted table':g})};
+  $('#imp-file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();$('#imp-err').textContent='';
     if(/\.xlsx?$/i.test(f.name)){
-      r.onload=()=>{try{const wb=XLSX.read(r.result,{type:'array'});$('#imp-text').value=XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]],{FS:'\t'});previewImport()}catch{$('#imp-err').textContent='Could not read that Excel file.'}};
+      r.onload=()=>{try{const wb=XLSX.read(r.result,{type:'array',cellDates:true}),sh={};
+        wb.SheetNames.forEach(n=>{sh[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}).map(row=>row.map(cellNorm))});loadSheets(sh)}catch{$('#imp-err').textContent='Could not read that Excel file.'}};
       r.readAsArrayBuffer(f);
-    }else{r.onload=()=>{$('#imp-text').value=r.result;previewImport()};r.readAsText(f)}};
+    }else{r.onload=()=>{$('#imp-text').value=r.result;loadSheets({[f.name]:textToGrid(r.result)})};r.readAsText(f)}};
+  $('#imp-sheet').onchange=e=>applySheet(e.target.value);
+  $('#imp-hdr').onchange=e=>{IMP.hdr=Math.max(0,(+e.target.value||1)-1);IMP.map=autoMap(IMP.grid,IMP.hdr);fillSelects();refreshPreview()};
+  $('#imp-mode').onchange=refreshPreview;
+  [['sym','#imp-c-sym'],['qty','#imp-c-qty'],['price','#imp-c-price'],['cost','#imp-c-cost'],['date','#imp-c-date']].forEach(([k,id])=>$(id).onchange=e=>{IMP.map[k]=+e.target.value;refreshPreview()});
   $('#dl-f').onclick=()=>csv('forecast.csv',S.fc.forecast);
   $('#dl-h').onclick=()=>csv('historical.csv',S.fc.history);
   const si=$('#search');

@@ -218,7 +218,7 @@ def add_holding(b: HoldingIn, u: User = Depends(current_user), db: Session = Dep
 
 
 class ImportRow(BaseModel):
-    symbol: str = Field(min_length=1, max_length=24)
+    symbol: str = Field(min_length=1, max_length=80)
     shares: float = Field(gt=0)
     buy_price: float = Field(gt=0)
     buy_date: dt.date | None = None
@@ -228,27 +228,58 @@ class ImportIn(BaseModel):
     rows: list[ImportRow] = Field(min_length=1, max_length=200)
     default_date: dt.date
     replace: bool = False
-    cse: bool = True
+    mode: str = "auto"          # auto | cse | global
+    dry_run: bool = False
+
+
+def resolve_symbol(raw: str, mode: str):
+    """Work out which market a spreadsheet symbol belongs to and confirm it has live data."""
+    s = raw.strip().upper()
+    if mode == "cse":
+        cands = [market.normalize(s, True)]
+    elif mode == "global":
+        cands = [s]
+    else:
+        n = market.normalize(s, False)
+        if market.is_cse(n):
+            cands = [n]
+        elif " " in s:
+            cands = [s]
+        else:
+            cands = [market.normalize(s, True), s]   # Sri Lankan first: the CSE feed rejects non-CSE codes
+    for c in cands:
+        q = market.quote(c)
+        if q:
+            return c, q
+    if " " in s and mode != "cse":                  # company names: ask Yahoo's search
+        for hit in market.search(raw.strip())[:2]:
+            c = hit["symbol"].upper()
+            q = market.quote(c)
+            if q:
+                return c, q
+    return None, None
 
 
 @app.post("/api/holdings/import")
 def import_holdings(b: ImportIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    def prep(r):
-        sym = market.normalize(r.symbol, b.cse)
-        if market.quote(sym) is None:
-            return sym, None, market.LAST_ERR.get(sym) or "No market data found"
-        return sym, market.info(sym), None
-    prepared = market.parallel(prep, b.rows)
-    good = [(r, p) for r, p in zip(b.rows, prepared) if p[2] is None]
+    prepared = market.parallel(lambda r: resolve_symbol(r.symbol, b.mode), b.rows)
+    items = [{"input": r.symbol, "symbol": p[0], "name": (p[1] or {}).get("name"), "price": (p[1] or {}).get("price"),
+              "currency": cur_of(p[0]) if p[0] else None,
+              "error": None if p[0] else "No live market data found. Check the ticker or choose the market."}
+             for r, p in zip(b.rows, prepared)]
+    if b.dry_run:
+        return {"items": items}
+    good = [(r, p[0]) for r, p in zip(b.rows, prepared) if p[0]]
+    infos = market.parallel(lambda g: market.info(g[1]), good)
     if b.replace and good:
-        syms = {p[0] for _, p in good}
+        syms = {g[1] for g in good}
         for h in db.query(Holding).filter(Holding.user_id == u.id, Holding.symbol.in_(syms)).all():
             db.delete(h)
-    for r, (sym, i, _) in good:
+    for (r, sym), i in zip(good, infos):
         db.add(Holding(user_id=u.id, symbol=sym, name=i["name"], sector=i["sector"], shares=r.shares,
                        buy_price=r.buy_price, buy_date=r.buy_date or b.default_date))
     db.commit()
-    return {"added": len(good), "failed": [{"symbol": p[0], "error": p[2]} for _, p in zip(b.rows, prepared) if p[2]]}
+    return {"added": len(good), "failed": [{"symbol": i["input"], "error": i["error"]} for i in items if i["error"]]}
 
 
 @app.get("/api/forecast/portfolio")

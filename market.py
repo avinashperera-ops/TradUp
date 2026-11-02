@@ -1,5 +1,5 @@
 """Live market data (Yahoo Finance; cse.lk for Colombo quotes) and the forecast model."""
-import os, time, requests
+import os, re, time, requests
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -20,13 +20,21 @@ def cse_code(symbol: str) -> str:
     return symbol.rsplit(".", 1)[0] if is_cse(symbol) else symbol
 
 
+_CSE_CLASS = re.compile(r"^(.+?)\.([NXPWD])(\d{0,4})$")
+
+
 def normalize(symbol: str, cse: bool = False) -> str:
+    """Accepts HNB, HNB.N, HNB.N0000 or HNB.N0000.CSE and returns the canonical HNB.N0000.CSE for Colombo
+    stocks. Non-Colombo tickers (AAPL, BRK.B, TCS.NS) are returned unchanged unless cse=True."""
     s = symbol.strip().upper()
-    if cse or is_cse(s):
-        base = cse_code(s)
-        if "." not in base:          # default to the voting-share class
-            base += ".N0000"
-        return base + ".CSE"
+    if is_cse(s):
+        s = cse_code(s)
+        cse = True
+    m = _CSE_CLASS.match(s)
+    if m:
+        return f"{m.group(1)}.{m.group(2)}{m.group(3).ljust(4, '0')}.CSE"
+    if cse:
+        return (s if "." in s else s + ".N0000") + ".CSE"
     return s
 
 

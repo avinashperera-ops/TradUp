@@ -208,6 +208,65 @@ def add_holding(b: HoldingIn, u: User = Depends(current_user), db: Session = Dep
     return {"ok": True}
 
 
+class ImportRow(BaseModel):
+    symbol: str = Field(min_length=1, max_length=24)
+    shares: float = Field(gt=0)
+    buy_price: float = Field(gt=0)
+    buy_date: dt.date | None = None
+
+
+class ImportIn(BaseModel):
+    rows: list[ImportRow] = Field(min_length=1, max_length=200)
+    default_date: dt.date
+    replace: bool = False
+    cse: bool = True
+
+
+@app.post("/api/holdings/import")
+def import_holdings(b: ImportIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    def prep(r):
+        sym = market.normalize(r.symbol, b.cse)
+        if market.quote(sym) is None:
+            return sym, None, market.LAST_ERR.get(sym) or "No market data found"
+        return sym, market.info(sym), None
+    prepared = market.parallel(prep, b.rows)
+    good = [(r, p) for r, p in zip(b.rows, prepared) if p[2] is None]
+    if b.replace and good:
+        syms = {p[0] for _, p in good}
+        for h in db.query(Holding).filter(Holding.user_id == u.id, Holding.symbol.in_(syms)).all():
+            db.delete(h)
+    for r, (sym, i, _) in good:
+        db.add(Holding(user_id=u.id, symbol=sym, name=i["name"], sector=i["sector"], shares=r.shares,
+                       buy_price=r.buy_price, buy_date=r.buy_date or b.default_date))
+    db.commit()
+    return {"added": len(good), "failed": [{"symbol": p[0], "error": p[2]} for _, p in zip(b.rows, prepared) if p[2]]}
+
+
+@app.get("/api/forecast/portfolio")
+def portfolio_forecast(days: int = 30, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    days = max(7, min(days, 90))
+    rows = db.query(Holding).filter(Holding.user_id == u.id).all()
+    shares, names = {}, {}
+    for h in rows:
+        shares[h.symbol] = shares.get(h.symbol, 0) + h.shares
+        names[h.symbol] = h.name
+    syms = sorted(shares)
+    out, totals = [], {}
+    for s, f in zip(syms, market.parallel(lambda s: market.forecast(s, days), syms)):
+        if not f:
+            out.append({"symbol": s, "name": names[s], "error": market.LAST_ERR.get(s) or "Not enough price history"})
+            continue
+        o, sh = f["outlook"], shares[s]
+        exp = f["forecast"][-1]["yhat"]
+        cur = "LKR" if market.is_cse(s) else "USD"
+        out.append({"symbol": s, "name": names[s], "shares": sh, "currency": cur, "last": o["last"], "expected": exp,
+                    "expected_pct": o["expected_pct"], "low": o["range_low"], "high": o["range_high"], "signal": o["signal"]})
+        t = totals.setdefault(cur, {"value": 0.0, "expected": 0.0, "low": 0.0, "high": 0.0})
+        t["value"] += sh * o["last"]; t["expected"] += sh * exp
+        t["low"] += sh * o["range_low"]; t["high"] += sh * o["range_high"]
+    return {"days": days, "items": out, "totals": totals}
+
+
 @app.delete("/api/holdings/{hid}")
 def del_holding(hid: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
     h = db.get(Holding, hid)

@@ -1,0 +1,105 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>TradUp</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script></head>
+<body><div class="shell">
+<aside class="side">
+ <div class="logo"><i></i>TradUp</div>
+ <div class="lbl">MENU</div>
+ <button class="nav on" data-v="dashboard"><i>⌂</i><span>Dashboard</span></button>
+ <button class="nav" data-v="assets"><i>◍</i><span>Assets</span><b id="cnt" hidden></b></button>
+ <button class="nav" data-v="market"><i>◩</i><span>Market</span></button>
+ <button class="nav" data-v="watchlist"><i>☆</i><span>Watchlist</span></button>
+ <div class="theme"><button data-t="light">☀ Light</button><button data-t="dark" class="on">☾ Dark</button></div>
+ <div class="lbl" style="margin-top:22px">MANAGE</div>
+ <button class="nav" id="logout"><i>⏻</i><span>Sign out</span></button>
+ <div class="promo"><div class="ic">✦</div><h4>Invest with AI</h4><p>Get accurate market insights</p><button id="tryai">✦ Try AI Now</button></div>
+</aside>
+<main class="main">
+ <div class="top">
+  <div class="mlogo"><i></i>TradUp</div>
+  <h1 id="title">Dashboard</h1>
+  <div class="searchbox"><span class="s">⌕</span><input id="search" placeholder="Search any ticker or company" autocomplete="off"><kbd>⌘ K</kbd><div class="drop" id="sugg" hidden></div></div>
+  <div class="pop"><button class="circ" id="bell">🔔</button><div class="drop" id="notifs" hidden></div></div>
+  <div class="user" id="userbtn"><div class="av" id="av"></div><div class="uinfo"><b id="uname"></b><span class="mut sm" id="uemail"></span></div>
+   <div class="drop umenu" id="umenu" hidden><div class="theme"><button data-t="light">☀ Light</button><button data-t="dark" class="on">☾ Dark</button></div><button id="logout2">⏻ Sign out</button></div></div>
+ </div>
+
+ <section class="view on" id="v-dashboard"><div class="grid"><div>
+   <div class="stats">
+    <div class="card stat" data-go="assets"><div class="r">Market Value <span>↗</span></div><div class="v" id="s1">$0.00</div></div>
+    <div class="card stat" data-go="assets"><div class="r">Today's Change <span>↗</span></div><div class="v" id="s2">$0.00</div></div>
+    <div class="card stat" data-go="assets"><div class="r">Total Return <span>↗</span></div><div class="v" id="s3">$0.00</div></div>
+   </div>
+   <div class="card chartcard">
+    <div class="head"><div><h3>Total Value</h3><div class="big" id="cval">$0.00</div></div>
+     <div style="display:flex;gap:10px"><select class="pill" id="cur" hidden></select><select class="pill" id="range"><option value="30">1 Month</option><option value="90" selected>3 Months</option><option value="180">6 Months</option><option value="365">1 Year</option></select></div></div>
+    <div class="chartbox"><canvas id="pChart"></canvas><div class="empty" id="chartEmpty" hidden style="position:absolute;inset:0">
+      <div>No holdings yet.<br>Add your first asset to see your portfolio value over time.<br><button class="btn" data-go="assets">Add an asset</button></div></div></div>
+   </div>
+   <div class="sec"><h3>Top Watchlist Assets</h3><a data-go="watchlist">See all</a></div>
+   <div class="cards4" id="top4"></div>
+  </div>
+  <div>
+   <div class="invest"><div class="t"><i>▥</i>Total Investment</div>
+    <div class="big" id="inv">$0.00</div><div id="invlist"></div></div>
+   <div class="card"><div class="head"><h3>Portfolio Positions</h3><span class="mut">•••</span></div><div id="positions" style="margin-top:14px"></div></div>
+  </div></div></section>
+
+ <section class="view" id="v-assets"><div class="card"><h3 style="margin-bottom:16px;font-weight:500;font-size:22px">Add an asset</h3>
+  <div class="form" id="addForm">
+   <label>Ticker<input class="pill" id="a-sym" placeholder="AAPL" required></label>
+   <label>Shares<input class="pill" id="a-sh" type="number" step="any" min="0" placeholder="10"></label>
+   <label>Buy price<input class="pill" id="a-px" type="number" step="any" min="0" placeholder="150.00"></label>
+   <label>Buy date<input class="pill" id="a-dt" type="date"></label>
+   <label class="chk"><input type="checkbox" id="a-cse"> Sri Lankan CSE</label>
+   <button class="btn" id="a-go">Add asset</button></div><div class="err" id="a-err"></div></div>
+  <div class="card" style="margin-top:24px"><h3 style="font-weight:500;font-size:22px">Import your holdings</h3>
+   <p class="mut sm" style="margin-top:6px">Upload any Excel or CSV file (ATrad, another broker, or your own sheet), or paste a table. Columns are detected automatically, and you can correct them below.</p>
+   <textarea id="imp-text" class="pill" rows="4" style="width:100%;border-radius:16px;margin-top:12px;resize:vertical" placeholder="Or paste a table here (copied from Excel, a website or a PDF)"></textarea>
+   <div class="form" style="margin-top:12px"><label>Upload Excel / CSV<input type="file" id="imp-file" accept=".xlsx,.xls,.csv,.txt,.tsv"></label><button class="btn ghost" id="imp-prev">Read pasted table</button></div>
+   <div id="imp-map" hidden>
+    <div class="form" style="margin-top:16px">
+     <label id="imp-sheetl" hidden>Sheet<select class="pill" id="imp-sheet"></select></label>
+     <label>Header row<input class="pill" id="imp-hdr" type="number" min="1" style="min-width:80px;width:90px"></label>
+     <label>Market<select class="pill" id="imp-mode"><option value="auto">Auto-detect</option><option value="cse">All Sri Lankan (CSE)</option><option value="global">All global</option></select></label>
+     <label>If no dates, held since<input class="pill" type="date" id="imp-date"></label>
+     <label class="chk"><input type="checkbox" id="imp-rep" checked> Replace my existing holdings of the same symbols</label></div>
+    <div class="form" style="margin-top:12px">
+     <label>Symbol / company<select class="pill" id="imp-c-sym"></select></label>
+     <label>Quantity<select class="pill" id="imp-c-qty"></select></label>
+     <label>Buy price<select class="pill" id="imp-c-price"></select></label>
+     <label>Total cost (if no price)<select class="pill" id="imp-c-cost"></select></label>
+     <label>Date (optional)<select class="pill" id="imp-c-date"></select></label></div>
+   </div>
+   <div id="imp-out" class="tw" style="margin-top:14px"></div><div class="err" id="imp-err"></div></div>
+  <div class="card" style="margin-top:24px"><div class="head"><h3 style="font-weight:500;font-size:22px">Predictions for all holdings</h3>
+   <div style="display:flex;gap:10px"><select class="pill" id="pf-days"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="60">60 days</option><option value="90">90 days</option></select>
+   <button class="btn" id="pf-go">Run predictions</button></div></div>
+   <div class="err" id="pf-err"></div><div id="pf-out" class="tw" style="margin-top:14px"></div></div>
+  <div class="card" style="margin-top:24px"><div class="tw" id="assetsTable"></div></div></section>
+
+ <section class="view" id="v-market"><div class="ov" id="overview"></div>
+  <div class="card"><div class="form">
+   <label>Ticker<input class="pill" id="m-sym" value="AAPL"></label>
+   <label class="chk"><input type="checkbox" id="m-cse"> Sri Lankan CSE</label>
+   <label><span>Forecast horizon: <b id="m-hv">30</b> trading days</span><input type="range" id="m-h" min="7" max="90" value="30"></label>
+   <button class="btn" id="m-go">Run live analysis</button></div><div class="err" id="m-err"></div>
+   <div id="m-out" hidden>
+    <div class="head" style="margin-top:20px"><h3 id="m-title"></h3><div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost" id="m-watch">☆ Watch</button><button class="btn ghost" id="m-asset">+ Add to assets</button></div></div>
+    <div class="outlook" id="m-outlook"></div>
+    <div class="chartbox"><canvas id="fChart"></canvas></div>
+    <div class="sec"><h3>Automated Technical Signals</h3><div style="display:flex;gap:10px"><button class="btn ghost" id="dl-f">Forecast CSV</button><button class="btn ghost" id="dl-h">Historical CSV</button></div></div>
+    <div class="tw" id="m-sig"></div>
+    <p class="mut xs" style="margin-top:16px">Forecasts come from a simple trend-and-volatility model and are statistical estimates, not financial advice.</p>
+   </div></div></section>
+
+ <section class="view" id="v-watchlist"><div class="card"><div class="form">
+   <label>Ticker<input class="pill" id="w-sym" placeholder="MSFT"></label>
+   <label class="chk"><input type="checkbox" id="w-cse"> Sri Lankan CSE</label>
+   <button class="btn" id="w-go">Add to watchlist</button></div><div class="err" id="w-err"></div></div>
+  <div class="cards4" id="wGrid" style="margin-top:24px"></div></section>
+</main></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="/static/app.js"></script></body></html>

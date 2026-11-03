@@ -1,0 +1,228 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TradUp</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0a1f;--side:#0d0c26;--card:rgba(255,255,255,.04);--bd:rgba(255,255,255,.08);--tx:#fff;--mu:#7b7a99;--up:#4ade80;--dn:#f87171;--gl:linear-gradient(160deg,#5b21b6,#8b5cf6 55%,#d070d8)}
+[data-t=light]{--bg:#f3f1fb;--side:#fff;--card:#fff;--bd:#e5e1f5;--tx:#17142e;--mu:#7a7694;--up:#16a34a;--dn:#dc2626}
+*{box-sizing:border-box;margin:0}body{font:15px Inter,system-ui,sans-serif;background:radial-gradient(circle at 80% 0,#2a1259 0,transparent 45%),var(--bg);color:var(--tx);min-height:100vh}
+[data-t=light] body{background:var(--bg)}
+.app{display:grid;grid-template-columns:260px 1fr;max-width:1500px;margin:auto}
+aside{background:var(--side);padding:24px 16px;min-height:100vh;display:flex;flex-direction:column;gap:6px}
+.logo{display:flex;gap:10px;align-items:center;font-size:20px;margin:0 8px 24px}.logo i{width:30px;height:30px;border-radius:50%;background:conic-gradient(#a855f7,#4c1d95,#a855f7)}
+.lbl{font-size:12px;color:var(--mu);margin:10px 8px}
+.nav{padding:13px 16px;border-radius:30px;color:var(--mu);cursor:pointer;display:flex;justify-content:space-between}.nav.on{background:linear-gradient(90deg,#6d28d9,#4c1d95);color:#fff}
+.nav b{background:#ef4444;color:#fff;border-radius:10px;font-size:11px;padding:2px 7px}
+.theme{display:flex;background:rgba(124,58,237,.12);border-radius:30px;padding:3px;margin:14px 0}.theme span{flex:1;text-align:center;padding:9px;border-radius:30px;cursor:pointer;font-size:14px}.theme .on{background:linear-gradient(90deg,#7c3aed,#a855f7);color:#fff}
+.ai{margin-top:auto;border-radius:22px;padding:20px;background:var(--gl);color:#fff;min-height:190px;display:flex;flex-direction:column}.ai h3{font-weight:500;font-size:20px}.ai p{font-size:13px;opacity:.85;margin:4px 0 auto}
+.btn{background:#fff;color:#5b21b6;border:0;border-radius:30px;padding:12px 18px;font-weight:600;cursor:pointer;font:inherit;font-weight:600;font-size:14px;align-self:flex-start}
+main{padding:28px 32px;min-width:0}
+header{display:flex;gap:14px;align-items:center;margin-bottom:28px}header h1{font-weight:500;font-size:34px;margin-right:auto}
+.sw{position:relative;width:min(420px,40vw)}.sw input{width:100%;background:var(--card);border:1px solid var(--bd);border-radius:30px;padding:14px 20px;color:var(--tx);font:inherit;outline:0}
+.dd{position:absolute;top:54px;left:0;right:0;background:var(--side);border:1px solid var(--bd);border-radius:16px;z-index:9;overflow:hidden}.dd div{padding:12px 18px;cursor:pointer;display:flex;justify-content:space-between;gap:10px}.dd div:hover{background:var(--card)}
+.me{display:flex;gap:10px;align-items:center}.av{width:44px;height:44px;border-radius:50%;background:var(--gl) center/cover;display:grid;place-items:center;font-weight:600;color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:24px;padding:22px;margin-bottom:20px}.cards .card{margin:0}
+.stat span{color:var(--mu)}.stat h2{font-size:30px;font-weight:500;margin-top:26px}
+.badge{font-size:12px;padding:3px 8px;border-radius:8px;background:rgba(74,222,128,.15);color:var(--up);vertical-align:middle;margin-left:6px}.badge.d{background:rgba(248,113,113,.15);color:var(--dn)}
+.up{color:var(--up)}.dn{color:var(--dn)}.mu{color:var(--mu)}
+.ch h2{font-size:34px;font-weight:500;margin-top:8px}canvas{width:100%;height:330px;display:block;margin-top:10px}canvas.s{height:230px}
+select,.sm{background:transparent;color:var(--tx);border:1px solid var(--bd);border-radius:20px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer}select option{color:#000}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hero{background:var(--gl);color:#fff;border-radius:24px;padding:22px;margin-bottom:20px}.hero h2{font-size:34px;font-weight:500;margin:22px 0}.hero .row{padding:8px 0}.hero .mu{color:rgba(255,255,255,.7)}
+.pos{display:flex;gap:12px;align-items:center;padding:12px;border-radius:16px;cursor:pointer}.pos:hover,.pos.on{background:rgba(124,58,237,.14)}
+.ic{width:44px;height:44px;border-radius:50%;background:rgba(124,58,237,.2);display:grid;place-items:center;font-weight:600;font-size:12px;flex:none}.pos>div:nth-child(2){flex:1;min-width:0}.pos small{display:block;color:var(--mu)}.pos>div:last-child{text-align:right}
+.mv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:14px 0 20px}.mv .card{padding:16px;cursor:pointer;border-radius:20px;margin:0}.mv .card:hover{border-color:#a855f7}.mv small{color:var(--mu)}
+.fx{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.pb{background:linear-gradient(90deg,#7c3aed,#a855f7);color:#fff;border:0;border-radius:30px;padding:11px 22px;cursor:pointer;font:inherit;font-weight:500}.pb.r{background:#dc2626}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:20}.mb{background:var(--side);border:1px solid var(--bd);border-radius:24px;padding:26px;width:min(420px,92vw)}
+.mb input,.auth input{width:100%;margin:8px 0;padding:13px 16px;border-radius:14px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;outline:0}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--bd);font-weight:400}th{color:var(--mu)}
+.auth{min-height:100vh;display:grid;place-items:center;padding:20px}.auth .card{width:min(420px,100%);padding:32px;background:var(--side)}
+.tabs{display:flex;background:rgba(124,58,237,.12);border-radius:30px;padding:3px;margin:18px 0}.tabs span{flex:1;text-align:center;padding:10px;border-radius:30px;cursor:pointer}.tabs .on{background:linear-gradient(90deg,#7c3aed,#a855f7);color:#fff}
+.gbtn{width:100%;background:#fff;color:#222;border:0;border-radius:30px;padding:12px;font:inherit;font-weight:500;cursor:pointer;margin-top:8px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}.metrics div{background:rgba(124,58,237,.1);border-radius:14px;padding:12px}.metrics small{color:var(--mu);display:block}.metrics b{font-weight:500;font-size:18px}
+.bar{height:6px;border-radius:6px;background:rgba(124,58,237,.2);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7c3aed,#f472b6);transition:width .2s}
+@media(max-width:1000px){.app,.grid{grid-template-columns:1fr}aside{min-height:0}.ai{display:none}.cards,.mv,.metrics{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<div id="auth" class="auth" hidden></div>
+<div class="app" id="app" hidden>
+<aside><div class="logo"><i></i>TradUp</div><div class="lbl">MENU</div>
+<div class="nav" data-v="dash">Dashboard</div><div class="nav" data-v="port">Portfolio <b id="cnt">0</b></div><div class="nav" data-v="acct">Account</div>
+<div class="theme"><span data-th="light">☀ Light</span><span data-th="dark">☾ Dark</span></div>
+<div class="ai"><h3>Invest with AI</h3><p>Neural-net forecast for any ticker</p><button class="btn" id="aiBtn">✦ Try AI Now</button></div></aside>
+<main><header><h1 id="title">Dashboard</h1>
+<div class="sw"><input id="q" placeholder="Search ticker or company, e.g. AAPL, John Keells…"><div class="dd" id="dd" hidden></div></div>
+<div class="me"><div class="av" id="av"></div><div><div id="nm"></div><small class="mu" id="hd"></small></div></div></header>
+<div id="view"></div></main></div><div id="modal"></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const money=(n,c='USD')=>new Intl.NumberFormat('en',{style:'currency',currency:c,maximumFractionDigits:2}).format(n);
+const pc=n=>(n>=0?'+':'')+n.toFixed(2)+'%';
+const S={v:'dash',sym:'AAPL',range:'6mo',cache:{},d:null,ml:null,mlSym:null,user:null,acc:null,fx:{}};
+const RN={'1mo':22,'6mo':126,'1y':252,'5y':1e5};
+let sb=null;
+
+// ================= AUTH (Supabase: email/password + Google) =================
+function authView(msg=''){
+ $('#app').hidden=true;$('#auth').hidden=false;const mode=S.am||'in';
+ $('#auth').innerHTML=`<div class="card"><div class="logo"><i></i>TradUp</div><h2 style="font-weight:500">${mode=='in'?'Welcome back':'Create your account'}</h2>
+ <div class="tabs"><span data-m="in" class="${mode=='in'?'on':''}">Log in</span><span data-m="up" class="${mode=='up'?'on':''}">Sign up</span></div>
+ ${mode=='up'?'<input id="an" placeholder="Full name">':''}<input id="ae" type="email" placeholder="Email"><input id="ap" type="password" placeholder="Password (min 6 chars)">
+ <p id="am" class="${msg.startsWith('✓')?'up':'dn'}" style="min-height:22px;font-size:13px">${msg}</p>
+ <button class="pb" style="width:100%" id="go">${mode=='in'?'Log in':'Sign up'}</button>
+ <button class="gbtn" id="gg">Continue with Google</button>
+ ${mode=='in'?'<p class="mu" style="text-align:center;margin-top:14px;font-size:13px;cursor:pointer" id="fp">Forgot password?</p>':''}</div>`;
+ $$('.tabs span').forEach(t=>t.onclick=()=>{S.am=t.dataset.m;authView()});
+ $('#gg').onclick=async()=>{if(window.AndroidBridge){const{data,error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'tradup://callback',skipBrowserRedirect:true}});if(error)return authView(error.message);AndroidBridge.openExternal(data.url)}else sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin}})};
+ const fp=$('#fp');if(fp)fp.onclick=async()=>{const e=$('#ae').value;if(!e)return authView('Enter your email first');const{error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.origin});authView(error?error.message:'✓ Password reset email sent')};
+ $('#go').onclick=async()=>{const email=$('#ae').value.trim(),password=$('#ap').value;if(!email||password.length<6)return authView('Enter a valid email and a 6+ character password');
+  if(mode=='in'){const{error}=await sb.auth.signInWithPassword({email,password});if(error)authView(error.message)}
+  else{const{data,error}=await sb.auth.signUp({email,password,options:{data:{full_name:$('#an').value.trim()}}});if(error)return authView(error.message);if(!data.session)authView('✓ Check your email to confirm your account, then log in.')}}}
+async function boot(){
+ if(!S.user){S.acc=null;return authView()}
+ let{data}=await sb.from('accounts').select('*').eq('user_id',S.user.id).maybeSingle();
+ if(!data){data={user_id:S.user.id,cash:100000,positions:{},tx:[],watch:[]};const{error}=await sb.from('accounts').insert(data);if(error){$('#auth').hidden=false;$('#auth').innerHTML='<div class="card dn">Database not set up: run supabase.sql in your Supabase project. ('+error.message+')</div>';return}}
+ S.acc=data;const m=S.user.user_metadata||{},nm=m.full_name||m.name||S.user.email.split('@')[0];
+ $('#auth').hidden=true;$('#app').hidden=false;$('#nm').textContent=nm;$('#hd').textContent='@'+S.user.email.split('@')[0];
+ const av=$('#av');if(m.avatar_url){av.style.backgroundImage=`url(${m.avatar_url})`;av.textContent=''}else av.textContent=nm.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
+ go(S.v)}
+const persist=()=>sb.from('accounts').update({cash:S.acc.cash,positions:S.acc.positions,tx:S.acc.tx,watch:S.acc.watch}).eq('user_id',S.user.id);
+
+// ================= DATA =================
+async function get(s,range='5y'){const k=s+range,c=S.cache[k];if(c&&Date.now()-c.t<6e4)return c.d;
+ const r=await fetch(`/api/chart?s=${encodeURIComponent(s)}&range=${range}&interval=1d`);if(!r.ok)throw new Error('Could not load '+s);const d=await r.json();S.cache[k]={t:Date.now(),d};return d}
+async function rate(cur){if(cur=='USD')return 1;if(S.fx[cur]&&Date.now()-S.fx[cur].t<36e5)return S.fx[cur].v;const d=await get(cur+'=X','1mo');S.fx[cur]={t:Date.now(),v:d.price};return d.price}
+const toUSD=async(a,cur)=>a/await rate(cur);
+
+// ================= ML: GRU ensemble on technical features =================
+const L=20,NF=8;
+function feats(c,v){const n=c.length,R=[0];for(let i=1;i<n;i++)R[i]=Math.log(c[i]/c[i-1]);
+ const mean=a=>a.reduce((s,x)=>s+x,0)/a.length,sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))||1e-9};
+ let e12=c[0],e26=c[0],sg=0;const H=[];for(let i=0;i<n;i++){e12+=(c[i]-e12)*2/13;e26+=(c[i]-e26)*2/27;const m=e12-e26;sg+=(m-sg)*2/10;H[i]=(m-sg)/c[i]*100}
+ const F=[];for(let i=50;i<n;i++){let g=0,l=0;for(let j=i-13;j<=i;j++){const d=c[j]-c[j-1];d>0?g+=d:l-=d}
+  const rsi=g+l===0?.5:g/(g+l),w=v?v.slice(i-19,i+1):null,vz=w&&sd(w)>1e-6?(v[i]-mean(w))/sd(w):0;
+  F.push([R[i],Math.log(c[i]/c[i-5]),Math.log(c[i]/c[i-20]),sd(R.slice(i-9,i+1)),rsi-.5,H[i],Math.log(c[i]/mean(c.slice(i-49,i+1))),vz])}
+ return{F,R}}
+const mk=()=>{const m=tf.sequential();m.add(tf.layers.gru({units:24,inputShape:[L,NF],dropout:.1}));m.add(tf.layers.dense({units:12,activation:'tanh'}));m.add(tf.layers.dense({units:1}));m.compile({optimizer:tf.train.adam(.004),loss:'meanSquaredError'});return m};
+const nextDay=t=>{let d=new Date(t+864e5);while([0,6].includes(d.getUTCDay()))d=new Date(+d+864e5);return +d};
+async function runML(d,prog){
+ const c=d.pts.map(p=>p[1]),t=d.pts.map(p=>p[0]),v=d.vol&&d.vol.some(x=>x>0)?d.vol:null;
+ if(c.length<250)throw new Error(`Only ${c.length} daily prices are available for ${d.symbol}; the model needs at least 250 to train and validate honestly.`);
+ const{F,R}=feats(c,v),ns=F.length-1-(L-1),ntr=Math.floor(ns*.8);
+ const trRows=F.slice(0,ntr+L-1),mu=[],sg=[];for(let j=0;j<NF;j++){const col=trRows.map(r=>r[j]),m=col.reduce((s,x)=>s+x,0)/col.length;mu[j]=m;sg[j]=Math.sqrt(col.reduce((s,x)=>s+(x-m)**2,0)/col.length)||1}
+ const nz=r=>r.map((x,j)=>Math.max(-5,Math.min(5,(x-mu[j])/sg[j])));const Fn=F.map(nz);
+ const ys=[];for(let k=L-1;k<F.length-1;k++)ys.push(R[k+51]);
+ const sdY=Math.sqrt(ys.slice(0,ntr).reduce((s,x)=>s+x*x,0)/ntr)||1e-6;
+ const win=k=>Fn.slice(k-L+1,k+1),Xa=[];for(let k=L-1;k<F.length-1;k++)Xa.push(win(k));
+ const Xtr=tf.tensor3d(Xa.slice(0,ntr)),ytr=tf.tensor2d(ys.slice(0,ntr).map(y=>[y/sdY])),Xte=tf.tensor3d(Xa.slice(ntr));
+ const models=[],E=3;
+ for(let e=0;e<E;e++){const m=mk();await m.fit(Xtr,ytr,{epochs:40,batchSize:32,validationSplit:.15,shuffle:false,callbacks:[tf.callbacks.earlyStopping({monitor:'val_loss',patience:6}),{onEpochEnd:async(ep)=>{prog((e+(ep+1)/40)/E,`Training model ${e+1}/${E} · epoch ${ep+1}`);await tf.nextFrame()}}]});models.push(m)}
+ const pred=X=>tf.tidy(()=>{const o=models.map(m=>m.predict(X).dataSync());return Array.from(o[0]).map((_,i)=>o.reduce((s,a)=>s+a[i],0)/E*sdY)});
+ const pr=pred(Xte),yt=ys.slice(ntr),n=yt.length;let hit=0,cnt=0,sm=0,sn=0,am=0,an=0;const bt=[],btA=[];
+ for(let i=0;i<n;i++){const k=L-1+ntr+i,p0=c[k+50],a=c[k+51],pp=p0*Math.exp(pr[i]);if(yt[i]!==0){cnt++;if(Math.sign(pr[i])==Math.sign(yt[i]))hit++}
+  sm+=(yt[i]-pr[i])**2;sn+=yt[i]**2;am+=Math.abs(pp-a)/a;an+=Math.abs(p0-a)/a;bt.push([t[k+51],pp]);btA.push([t[k+51],a])}
+ const res=yt.map((y,i)=>y-pr[i]);
+ // forecast 30 trading days recursively; band = bootstrap of out-of-sample residuals
+ let C=c.slice(),V=v?v.slice():null,T=t[t.length-1];const mean=[],H=30;
+ for(let h=0;h<H;h++){const tail=C.slice(-150),{F:f}=feats(tail,V?V.slice(-150):null),w=f.slice(-L).map(nz);
+  const X=tf.tensor3d([w]),r=pred(X)[0];X.dispose();C.push(C[C.length-1]*Math.exp(r));if(V)V.push(V.slice(-20).reduce((s,x)=>s+x,0)/20);T=nextDay(T);mean.push([T,C[C.length-1]])}
+ const sums=new Array(600).fill(0),band=[],q=(a,p)=>a[Math.floor(p*(a.length-1))];
+ for(let h=0;h<H;h++){for(let i=0;i<600;i++)sums[i]+=res[Math.floor(Math.random()*res.length)];const s=[...sums].sort((a,b)=>a-b),P=mean[h][1];
+  band.push([mean[h][0],P*Math.exp(q(s,.05)),P*Math.exp(q(s,.95))])}
+ [Xtr,ytr,Xte].forEach(x=>x.dispose());models.forEach(m=>m.dispose());
+ const rm=Math.sqrt(sm/n),rn=Math.sqrt(sn/n);
+ return{fc:mean,band,bt,btA,dir:hit/cnt,skill:1-rm/rn,mape:am/n*100,mapeN:an/n*100,ntr,nte:n,end:mean[H-1][1],last:c[c.length-1],lo:band[H-1][1],hi:band[H-1][2]}}
+
+// ================= CHARTS =================
+function draw(cv,layers,bands=[],cur='USD'){if(!cv)return;const dpr=devicePixelRatio||1,W=cv.clientWidth,Hh=cv.clientHeight;cv.width=W*dpr;cv.height=Hh*dpr;const g=cv.getContext('2d');g.scale(dpr,dpr);
+ const vals=layers.flatMap(l=>l.pts.map(p=>p[1])).concat(bands.flatMap(b=>b.b.flatMap(x=>[x[1],x[2]]))),mn=Math.min(...vals)*.985,mx=Math.max(...vals)*1.015;
+ const ts=layers.flatMap(l=>l.pts.map(p=>p[0])).concat(bands.flatMap(b=>b.b.map(x=>x[0]))),t0=Math.min(...ts),t1=Math.max(...ts),Lm=54,B=26;
+ const X=t=>Lm+(t-t0)/(t1-t0)*(W-Lm-10),Y=v=>10+(1-(v-mn)/(mx-mn))*(Hh-B-10);
+ g.font='11px Inter';g.fillStyle=getComputedStyle(document.body).getPropertyValue('--mu');g.strokeStyle='rgba(128,128,160,.22)';g.setLineDash([4,4]);
+ for(let i=0;i<=5;i++){const v=mn+(mx-mn)*i/5,y=Y(v);g.beginPath();g.moveTo(Lm,y);g.lineTo(W-10,y);g.stroke();g.fillText(v>=100?v.toFixed(0):v.toFixed(2),4,y+4)}
+ g.setLineDash([]);[0,.25,.5,.75,1].forEach(i=>{const t=t0+(t1-t0)*i;g.fillText(new Date(t).toLocaleDateString('en',{month:'short',day:'numeric'}),Math.min(X(t)-14,W-44),Hh-6)});
+ bands.forEach(b=>{g.beginPath();b.b.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[2])):g.moveTo(X(p[0]),Y(p[2])));for(let i=b.b.length-1;i>=0;i--)g.lineTo(X(b.b[i][0]),Y(b.b[i][1]));g.fillStyle=b.c;g.fill()});
+ layers.forEach(l=>{g.beginPath();l.pts.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.setLineDash(l.dash?[6,5]:[]);g.strokeStyle=l.c;g.lineWidth=2;g.stroke();g.setLineDash([]);
+  if(l.fill){const gr=g.createLinearGradient(0,0,0,Hh);gr.addColorStop(0,'rgba(168,85,247,.35)');gr.addColorStop(1,'rgba(168,85,247,0)');g.lineTo(X(l.pts[l.pts.length-1][0]),Hh-B);g.lineTo(X(l.pts[0][0]),Hh-B);g.fillStyle=gr;g.fill()}});
+ cv._d={X,Y,Lm,W,H:Hh,B,layers,t0,t1,cur,img:g.getImageData(0,0,cv.width,cv.height),dpr};cv.onmousemove=hover;cv.onmouseleave=()=>{g.setTransform(1,0,0,1,0,0);g.putImageData(cv._d.img,0,0)}}
+function hover(e){const cv=e.target,d=cv._d;if(!d)return;const mx=e.clientX-cv.getBoundingClientRect().left,t=d.t0+(mx-d.Lm)/(d.W-d.Lm-10)*(d.t1-d.t0);
+ let b=null,bl;d.layers.forEach(l=>l.pts.forEach(p=>{if(!b||Math.abs(p[0]-t)<Math.abs(b[0]-t)){b=p;bl=l}}));if(!b)return;
+ const g=cv.getContext('2d');g.setTransform(1,0,0,1,0,0);g.putImageData(d.img,0,0);g.scale(d.dpr,d.dpr);const x=d.X(b[0]),y=d.Y(b[1]);
+ g.strokeStyle='rgba(255,255,255,.55)';g.beginPath();g.moveTo(x,10);g.lineTo(x,d.H-d.B);g.stroke();g.shadowColor='#d946ef';g.shadowBlur=18;g.fillStyle='#e879f9';g.beginPath();g.arc(x,y,6,0,7);g.fill();g.shadowBlur=0;
+ const tx=`${bl.n}: ${money(b[1],d.cur)} · ${new Date(b[0]).toLocaleDateString('en',{month:'short',day:'numeric',year:'2-digit'})}`;g.font='600 12px Inter';const w=g.measureText(tx).width+22,bx=Math.min(Math.max(x-w/2,d.Lm),d.W-w-4),by=Math.max(y-44,2);
+ g.fillStyle='#fff';g.beginPath();g.roundRect(bx,by,w,26,13);g.fill();g.fillStyle='#111';g.fillText(tx,bx+11,by+17)}
+
+// ================= VIEWS =================
+async function holdings(){const o=[];for(const[s,p]of Object.entries(S.acc.positions)){let px=p.cost;try{px=(await get(s,'1mo')).price}catch(e){}const vu=await toUSD(p.sh*px,p.cur).catch(()=>0),cu=await toUSD(p.sh*p.cost,p.cur).catch(()=>0);o.push({s,...p,px,vu,cu,pl:(px/p.cost-1)*100})}return o}
+const posHTML=H=>H.length?H.map(h=>`<div class="pos ${h.s==S.sym?'on':''}" data-s="${h.s}"><div class="ic">${h.s.slice(0,3)}</div><div><b style="font-weight:500">${h.s}</b><small>${h.sh} sh @ ${money(h.cost,h.cur)}</small></div><div>${money(h.sh*h.px,h.cur)}<small class="${h.pl>=0?'up':'dn'}">${pc(h.pl)}</small></div></div>`).join(''):'<p class="mu" style="padding:12px">No positions yet — search a stock and buy.</p>';
+async function go(v){S.v=v;$$('.nav[data-v]').forEach(n=>n.classList.toggle('on',n.dataset.v==v));$('#cnt').textContent=Object.keys(S.acc.positions).length;$('#title').textContent={dash:'Dashboard',port:'Portfolio',acct:'Account'}[v];
+ if(v=='dash')return dash(S.sym);const H=await holdings(),mv=H.reduce((s,h)=>s+h.vu,0),cost=H.reduce((s,h)=>s+h.cu,0),ret=cost?(mv/cost-1)*100:0;
+ if(v=='acct'){const u=S.user,m=u.user_metadata||{};$('#view').innerHTML=`<div class="card" style="max-width:560px"><h3 style="font-weight:500;margin-bottom:14px">Your account</h3><table><tr><th>Name</th><td>${m.full_name||m.name||'—'}</td></tr><tr><th>Email</th><td>${u.email}</td></tr><tr><th>Sign-in method</th><td>${u.app_metadata?.provider||'email'}</td></tr><tr><th>Member since</th><td>${new Date(u.created_at).toLocaleDateString()}</td></tr><tr><th>Cash balance</th><td>${money(S.acc.cash)}</td></tr></table>
+ <div class="fx"><button class="pb" id="so">Sign out</button><button class="sm" id="rs">Reset paper account</button></div></div>`;
+  $('#so').onclick=()=>sb.auth.signOut();$('#rs').onclick=async()=>{if(confirm('Reset to $100,000 cash and delete all positions & history?')){Object.assign(S.acc,{cash:100000,positions:{},tx:[]});await persist();go('acct')}};return}
+ $('#view').innerHTML=`<div class="cards"><div class="card stat"><span>Total Value</span><h2>${money(S.acc.cash+mv)}</h2></div><div class="card stat"><span>Cash</span><h2>${money(S.acc.cash)}</h2></div><div class="card stat"><span>Return Rate</span><h2 class="${ret>=0?'up':'dn'}">${pc(ret)}</h2></div></div>
+ <div class="card"><h3 style="font-weight:500;margin-bottom:10px">Positions</h3>${posHTML(H)}</div><div class="card"><h3 style="font-weight:500">Transactions</h3><table><tr><th>Date</th><th>Type</th><th>Symbol</th><th>Shares</th><th>Price</th></tr>${S.acc.tx.slice().reverse().map(t=>`<tr><td>${new Date(t.d).toLocaleString()}</td><td class="${t.t=='BUY'?'up':'dn'}">${t.t}</td><td>${t.s}</td><td>${t.n}</td><td>${money(t.p,t.cur)}</td></tr>`).join('')||'<tr><td colspan=5 class="mu">None yet</td></tr>'}</table></div>`;
+ $$('[data-s]').forEach(e=>e.onclick=()=>{S.sym=e.dataset.s;go('dash')})}
+
+async function dash(sym){S.sym=sym;$('#view').innerHTML='<div class="card">Loading '+sym+'…</div>';
+ try{S.d=await get(sym)}catch(e){$('#view').innerHTML=`<div class="card dn">${e.message}. Check the ticker (CSE tickers look like JKH.N0000).</div>`;return}
+ S.ml=S.mlSym==sym?S.ml:null;await paint();if(!S.ml&&S.mlSym!=sym+'*'){S.mlSym=sym+'*';fit(sym)}}
+async function fit(sym){
+ try{const r=await runML(S.d,(f,m)=>{const b=$('#pgb'),t=$('#pgt');if(b)b.style.width=f*100+'%';if(t)t.textContent=m});if(S.sym!=sym)return;S.ml=r;S.mlSym=sym;await paint()}
+ catch(e){S.mlSym=null;const t=$('#mlbox');if(t)t.innerHTML=`<h3 style="font-weight:500">AI forecast</h3><p class="dn" style="margin-top:10px">${e.message}</p>`}}
+async function paint(){
+ const d=S.d,H=await holdings(),mv=H.reduce((s,h)=>s+h.vu,0),cost=H.reduce((s,h)=>s+h.cu,0),ret=cost?(mv/cost-1)*100:0,chg=(d.price/d.prev-1)*100,M=S.ml,cur=d.cur;
+ const star=S.acc.watch.includes(d.symbol);
+ const ml=M?`<h3 style="font-weight:500">AI forecast · next 30 trading days</h3><h2 style="font-weight:500;font-size:28px;margin:8px 0">${money(M.end,cur)} <span class="${M.end>=M.last?'up':'dn'}" style="font-size:16px">${pc((M.end/M.last-1)*100)}</span></h2>
+  <div class="mu">90% range: ${money(M.lo,cur)} – ${money(M.hi,cur)}</div>
+  <div class="metrics"><div><small>Direction hit-rate (holdout)</small><b>${(M.dir*100).toFixed(1)}%</b></div><div><small>Error vs random-walk</small><b class="${M.skill>0?'up':'dn'}">${M.skill>0?'':'+'}${(-M.skill*100).toFixed(1)}%</b></div><div><small>1-day MAPE (naive ${M.mapeN.toFixed(2)}%)</small><b>${M.mape.toFixed(2)}%</b></div></div>
+  <canvas id="bt" class="s"></canvas><div class="mu" style="font-size:12px;margin-top:6px">Backtest on ${M.nte} unseen days: model's next-day prediction (pink) vs actual close (purple). Trained on ${M.ntr} earlier days.</div>
+  <p class="mu" style="font-size:13px;margin-top:10px">${M.skill>0.01&&M.dir>.52?'Model shows a small measurable edge over a naive baseline on unseen data.':'On unseen data this model does <b>not</b> clearly beat a naive "tomorrow = today" baseline — treat the forecast as low-confidence.'} Statistical estimate, not financial advice.</p>`
+  :`<h3 style="font-weight:500">AI forecast</h3><p class="mu" id="pgt" style="margin-top:10px">Preparing model…</p><div class="bar"><i id="pgb"></i></div>`;
+ $('#view').innerHTML=`<div class="grid"><div>
+ <div class="cards"><div class="card stat"><span>Total Value</span><h2>${money(S.acc.cash+mv)}</h2></div><div class="card stat"><span>Market Value</span><h2>${money(mv)}</h2></div><div class="card stat"><span>Return Rate</span><h2 class="${ret>=0?'up':'dn'}">${pc(ret)}</h2></div></div>
+ <div class="card ch"><div class="row"><b style="font-weight:500;font-size:20px">${d.name} (${d.symbol})</b><div style="display:flex;gap:8px"><button class="sm" id="st">${star?'★ Watching':'☆ Watch'}</button>
+ <select id="rg">${[['1mo','1 Month'],['6mo','6 Months'],['1y','1 Year'],['5y','All (5Y)']].map(([v,l])=>`<option value="${v}" ${v==S.range?'selected':''}>${l}</option>`).join('')}</select></div></div>
+ <h2>${money(d.price,cur)}<span class="badge ${chg<0?'d':''}">${pc(chg)} today</span></h2><canvas id="cv"></canvas>
+ <div class="mu" style="font-size:12px;margin-top:6px">Purple: history · Pink dashed: AI forecast · Shaded: 90% range</div>
+ <div class="fx"><button class="pb" data-tr="BUY">Buy ${d.symbol}</button><button class="pb r" data-tr="SELL">Sell ${d.symbol}</button></div></div>
+ <div class="card" id="mlbox">${ml}</div>
+ <h3 style="font-weight:500;font-size:20px">Watchlist</h3><div class="mv" id="wl"></div><h3 style="font-weight:500;font-size:20px">Top gainers · Colombo Stock Exchange</h3><div class="mv" id="sl"></div></div>
+ <div><div class="hero"><span>▤ Total Investment</span><h2>${money(mv)}<span class="badge ${ret<0?'d':''}">${pc(ret)}</span></h2>${H.slice(0,4).map(h=>`<div class="row"><span>${h.s}</span><span class="mu">${money(h.sh*h.px,h.cur)} <span style="color:${h.pl>=0?'#86efac':'#fca5a5'}">${h.pl>=0?'↑':'↓'} ${Math.abs(h.pl).toFixed(1)}%</span></span></div>`).join('')||'<span class="mu">Buy a stock to see it here</span>'}</div>
+ <div class="card"><h3 style="font-weight:500;margin-bottom:10px">Portfolio Positions</h3>${posHTML(H)}<div class="mu" style="padding:10px 12px;font-size:13px">Cash: ${money(S.acc.cash)}</div></div></div></div>`;
+ const pts=d.pts.slice(-RN[S.range]),layers=[{pts,c:'#a78bfa',fill:1,n:'Price'}],bands=[];
+ if(M){layers.push({pts:[pts[pts.length-1],...M.fc],c:'#f472b6',dash:1,n:'Forecast'});bands.push({b:M.band,c:'rgba(244,114,182,.15)'});
+  draw($('#bt'),[{pts:M.btA,c:'#a78bfa',n:'Actual'},{pts:M.bt,c:'#f472b6',n:'Predicted'}],[],cur)}
+ draw($('#cv'),layers,bands,cur);
+ $('#rg').onchange=e=>{S.range=e.target.value;paint()};$$('[data-tr]').forEach(b=>b.onclick=()=>trade(b.dataset.tr));$$('.pos[data-s]').forEach(e=>e.onclick=()=>dash(e.dataset.s));
+ $('#st').onclick=async()=>{const w=S.acc.watch,i=w.indexOf(d.symbol);i<0?w.push(d.symbol):w.splice(i,1);await persist();paint()};
+ const card=(s,p,c,cu)=>`<div class="card" data-w="${s}"><b style="font-weight:500">${s}</b><div class="row" style="margin-top:22px"><span>${money(p,cu)}</span><span class="badge ${c<0?'d':''}">${pc(c)}</span></div></div>`;
+ const wl=$('#wl');wl.innerHTML=S.acc.watch.length?'':'<p class="mu">Tap ☆ Watch on any stock to track it here.</p>';
+ Promise.allSettled(S.acc.watch.slice(0,8).map(s=>get(s,'1mo'))).then(rs=>{wl.innerHTML+=rs.filter(r=>r.status=='fulfilled').map(r=>card(r.value.symbol,r.value.price,(r.value.price/r.value.prev-1)*100,r.value.cur)).join('');$$('[data-w]').forEach(c=>c.onclick=()=>dash(c.dataset.w))});
+ fetch('/api/movers').then(r=>r.json()).then(a=>{$('#sl').innerHTML=a.length?a.map(x=>card(x.symbol,x.price,x.pct,'LKR')).join(''):'<p class="mu">Unavailable right now.</p>';$$('#sl [data-w]').forEach(c=>c.onclick=()=>dash(c.dataset.w))}).catch(()=>{})}
+
+// ================= TRADING =================
+function trade(type){const d=S.d,own=S.acc.positions[d.symbol]?.sh||0;if(!['USD','LKR'].includes(d.cur))return alert('Paper trading supports USD and LKR stocks only.');
+ $('#modal').innerHTML=`<div class="modal"><div class="mb"><h3 style="font-weight:500">${type} ${d.symbol}</h3><p class="mu">Price ${money(d.price,d.cur)} · Cash ${money(S.acc.cash)} · Owned ${own}</p><input id="sh" type="number" min="1" step="1" value="1"><div id="est" class="mu"></div><p id="er" class="dn"></p><div class="fx"><button class="pb" id="ok">Confirm ${type}</button><button class="sm" id="no">Cancel</button></div></div></div>`;
+ const up=async()=>$('#est').textContent='Total: '+money((+$('#sh').value||0)*d.price,d.cur)+(d.cur!='USD'?' ≈ '+money(await toUSD((+$('#sh').value||0)*d.price,d.cur))+' (live FX)':'');$('#sh').oninput=up;up();$('#no').onclick=()=>$('#modal').innerHTML='';
+ $('#ok').onclick=async()=>{const n=Math.floor(+$('#sh').value),usd=await toUSD(n*d.price,d.cur),P=S.acc.positions;if(!(n>0))return $('#er').textContent='Enter a valid share count';
+  if(type=='BUY'){if(usd>S.acc.cash)return $('#er').textContent='Not enough cash';const p=P[d.symbol]||{sh:0,cost:0,cur:d.cur};p.cost=(p.cost*p.sh+n*d.price)/(p.sh+n);p.sh+=n;P[d.symbol]=p;S.acc.cash-=usd}
+  else{if(n>own)return $('#er').textContent='You only own '+own;P[d.symbol].sh-=n;S.acc.cash+=usd;if(!P[d.symbol].sh)delete P[d.symbol]}
+  S.acc.tx.push({t:type,s:d.symbol,n,p:d.price,cur:d.cur,d:Date.now()});await persist();$('#modal').innerHTML='';$('#cnt').textContent=Object.keys(P).length;paint()}}
+
+// ================= search / theme / init =================
+let tm;$('#q').oninput=e=>{clearTimeout(tm);const v=e.target.value.trim(),dd=$('#dd');if(!v){dd.hidden=true;return}
+ tm=setTimeout(async()=>{try{const r=await(await fetch('/api/search?q='+encodeURIComponent(v))).json();dd.innerHTML=r.map(x=>`<div data-s="${x.symbol}"><b>${x.symbol}</b><span class="mu">${x.name.slice(0,24)} · ${x.ex}</span></div>`).join('')||'<div class="mu">No results</div>';dd.hidden=false;
+ dd.querySelectorAll('[data-s]').forEach(el=>el.onclick=()=>{dd.hidden=true;$('#q').value='';S.v='dash';go('dash');dash(el.dataset.s)})}catch(e){}},250)};
+$$('.nav[data-v]').forEach(n=>n.onclick=()=>go(n.dataset.v));
+$('#aiBtn').onclick=()=>{S.v='dash';S.sym?dash(S.sym):0;$('#q').focus()};
+function theme(t){document.documentElement.dataset.t=t;try{localStorage.th=t}catch(e){}$$('.theme span').forEach(s=>s.classList.toggle('on',s.dataset.th==t));if(S.d&&S.v=='dash')paint()}
+$$('.theme span').forEach(s=>s.onclick=()=>theme(s.dataset.th));theme((()=>{try{return localStorage.th}catch(e){}})()||'dark');
+addEventListener('resize',()=>{if(S.d&&S.v=='dash'&&S.acc)paint()});
+if(!window.CFG||CFG.SUPABASE_URL.startsWith('PASTE')){$('#auth').hidden=false;$('#auth').innerHTML='<div class="card"><h3 style="font-weight:500">Setup needed</h3><p class="mu" style="margin-top:8px">Add your Supabase URL and anon key to public/config.js (see setup steps).</p></div>'}
+else{sb=supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+ sb.auth.onAuthStateChange((ev,s)=>{const u=s?.user||null;if(u?.id===S.user?.id&&ev!='USER_UPDATED'&&S.acc)return;S.user=u;boot()})}
+</script></body></html>

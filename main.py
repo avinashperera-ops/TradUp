@@ -16,6 +16,9 @@ PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
 GOOGLE = bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"))
 
 app = FastAPI(title="TradUp", docs_url=None, redoc_url=None)
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health():
+    return {"ok": True, "app": "tradup"}
 app.add_middleware(SessionMiddleware, secret_key=SECRET, session_cookie="oauth_session", same_site="lax", max_age=900)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 Base.metadata.create_all(engine)

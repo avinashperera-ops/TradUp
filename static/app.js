@@ -29,8 +29,9 @@ const axes=()=>({x:{grid:{display:false},ticks:{color:css('--mut'),maxTicksLimit
 function go(v){
   $$('.view').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));
   $$('.nav[data-v]').forEach(e=>e.classList.toggle('on',e.dataset.v===v));
-  $('#title').textContent=v;location.hash=v;window.scrollTo(0,0);
+  $('#title').textContent=({ailab:'AI Lab'})[v]||v;location.hash=v;window.scrollTo(0,0);
   if(v==='market'&&!$('#overview').children.length)loadOverview();
+  if(v==='ailab'&&window.AILab)AILab.show();
 }
 function setTheme(t){document.documentElement.dataset.theme=t;localStorage.setItem('theme',t);
   $$('.theme button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
@@ -307,7 +308,7 @@ function bind(){
   $('#logout').onclick=out;$('#logout2').onclick=out;
   $('#userbtn').onclick=e=>{if(!e.target.closest('#umenu'))$('#umenu').hidden=!$('#umenu').hidden};
   ['#assetsTable','#pf-out','#m-sig','#imp-out'].forEach(s=>new MutationObserver(()=>stackify($(s))).observe($(s),{childList:true}));
-  $('#tryai').onclick=()=>analyze(S.h[0]?.symbol||'AAPL',isCse(S.h[0]?.symbol));
+  $('#tryai').onclick=()=>AILab.open(S.h[0]?.symbol||'AAPL',isCse(S.h[0]?.symbol));
   $('#a-dt').max=new Date().toISOString().slice(0,10);$('#a-dt').value=$('#a-dt').max;
   $('#a-go').onclick=()=>post('/api/holdings',{symbol:$('#a-sym').value,shares:+$('#a-sh').value,buy_price:+$('#a-px').value,buy_date:$('#a-dt').value||null,cse:$('#a-cse').checked},$('#a-err'),async()=>{['#a-sym','#a-sh','#a-px'].forEach(s=>$(s).value='');await refresh()});
   $('#w-go').onclick=()=>post('/api/watchlist',{symbol:$('#w-sym').value,cse:$('#w-cse').checked},$('#w-err'),async()=>{$('#w-sym').value='';await loadWatch();notifs()});
@@ -344,6 +345,6 @@ function bind(){
   $('#uname').textContent=S.user.name;$('#uemail').textContent=S.user.email;
   $('#av').innerHTML=S.user.avatar?`<img src="${esc(S.user.avatar)}" referrerpolicy="no-referrer" alt="">`:esc(S.user.name.slice(0,1).toUpperCase());
   bind();
-  const v=location.hash.slice(1);if(['assets','market','watchlist'].includes(v))go(v);
+  const v=location.hash.slice(1);if(['assets','market','watchlist','ailab'].includes(v))go(v);
   await refresh();
 })();

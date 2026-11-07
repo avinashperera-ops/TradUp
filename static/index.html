@@ -1,6 +1,6 @@
 <!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>TradUp</title>
-<link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/style.css?v=4">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script></head>
 <body><div class="shell">
 <aside class="side">
@@ -9,6 +9,7 @@
  <button class="nav on" data-v="dashboard"><i>⌂</i><span>Dashboard</span></button>
  <button class="nav" data-v="assets"><i>◍</i><span>Assets</span><b id="cnt" hidden></b></button>
  <button class="nav" data-v="market"><i>◩</i><span>Market</span></button>
+ <button class="nav" data-v="ailab"><i>✦</i><span>AI Lab</span></button>
  <button class="nav" data-v="watchlist"><i>☆</i><span>Watchlist</span></button>
  <div class="theme"><button data-t="light">☀ Light</button><button data-t="dark" class="on">☾ Dark</button></div>
  <div class="lbl" style="margin-top:22px">MANAGE</div>
@@ -87,13 +88,15 @@
    <button class="btn" id="m-go">Run live analysis</button></div><div class="err" id="m-err"></div>
    <div id="m-out" hidden>
     <div class="head" style="margin-top:20px"><h3 id="m-title"></h3><div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn ghost" id="m-watch">☆ Watch</button><button class="btn ghost" id="m-asset">+ Add to assets</button></div></div>
+      <button class="btn ghost" id="m-watch">☆ Watch</button><button class="btn ghost" id="m-asset">+ Add to assets</button><button class="btn ghost" id="m-ai">✦ AI Lab</button></div></div>
     <div class="outlook" id="m-outlook"></div>
     <div class="chartbox"><canvas id="fChart"></canvas></div>
     <div class="sec"><h3>Automated Technical Signals</h3><div style="display:flex;gap:10px"><button class="btn ghost" id="dl-f">Forecast CSV</button><button class="btn ghost" id="dl-h">Historical CSV</button></div></div>
     <div class="tw" id="m-sig"></div>
     <p class="mut xs" style="margin-top:16px">Forecasts come from a simple trend-and-volatility model and are statistical estimates, not financial advice.</p>
    </div></div></section>
+
+ <section class="view" id="v-ailab"></section>
 
  <section class="view" id="v-watchlist"><div class="card"><div class="form">
    <label>Ticker<input class="pill" id="w-sym" placeholder="MSFT"></label>
@@ -102,4 +105,5 @@
   <div class="cards4" id="wGrid" style="margin-top:24px"></div></section>
 </main></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="/static/app.js?v=3"></script></body></html>
+<script src="/static/app.js?v=4"></script>
+<script src="/static/ai.js?v=1"></script></body></html>

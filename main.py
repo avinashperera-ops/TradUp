@@ -7,6 +7,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from authlib.integrations.starlette_client import OAuth
+from ai_lab import router as ai_router
+app.include_router(ai_router)
 
 import market
 from db import Base, engine, get_db, User, Holding, Watch

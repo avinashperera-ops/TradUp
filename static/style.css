@@ -197,3 +197,20 @@ body{overflow-x:hidden}
  .pos .nm b{font-size:14px}
  .pos .r b{font-size:13px}
 }
+
+/* ---- AI Lab ---- */
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.chip{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line);background:var(--input);border-radius:999px;cursor:pointer;font-size:14px}
+.chip:has(input:checked){border-color:var(--acc);background:rgba(139,92,246,.14)}
+.chip input{accent-color:#8b5cf6}
+.chip .cs{color:var(--mut)}
+.chip[data-st=r] .cs{color:#38bdf8}.chip[data-st=ok] .cs{color:var(--up)}.chip[data-st=err] .cs{color:var(--down)}
+details.ps{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+details.ps summary{cursor:pointer;color:var(--mut)}
+details.ps h4{font-weight:500;margin:18px 0 10px}
+.gauge{position:relative;height:10px;border-radius:999px;margin:18px 0 6px;background:linear-gradient(90deg,#f87171,#475569 50%,#34d399)}
+.gauge i{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #8b5cf6;transform:translate(-50%,-50%);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.gl{display:flex;justify-content:space-between;font-size:11px;color:var(--mut)}
+.big .sigpill{font-size:20px;padding:6px 20px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px}
+.imp{display:flex;align-items:center;gap:10px;margin-top:6px}.imp>span:first-child{width:90px}.imp i{display:block;height:8px;border-radius:99px;background:linear-gradient(90deg,#8b5cf6,#ec4899)}

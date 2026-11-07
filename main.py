@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from authlib.integrations.starlette_client import OAuth
 from ai_lab import router as ai_router
-app.include_router(ai_router)
+
 
 import market
 from db import Base, engine, get_db, User, Holding, Watch
@@ -18,6 +18,7 @@ PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
 GOOGLE = bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"))
 
 app = FastAPI(title="TradUp", docs_url=None, redoc_url=None)
+app.include_router(ai_router)
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"ok": True, "app": "tradup"}
